@@ -51,8 +51,9 @@ def get_sp500_dividend_yield():
         pass
     return 1.32  # 외부 차단 등 최악의 API 상황을 대비한 합리적인 기본값 백업
 
-@st.cache_data(ttl=3600)  # 1시간 동안 데이터 캐싱 (속도 향상 및 API 차단 방지)
-def get_all_financial_data(tickers):
+# 캐시 꼬임 방지를 위해 함수명을 get_all_financial_data_v2로 변경하여 과거 캐시 강제 무효화
+@st.cache_data(ttl=3600)  
+def get_all_financial_data_v2(tickers):
     data_list = []
     now = datetime.datetime.now()
     # 13개월 이상의 안정적인 데이터 확보를 위해 450일 전부터 가져옴
@@ -112,9 +113,9 @@ def get_all_financial_data(tickers):
             
     return pd.DataFrame(data_list)
 
-# 데이터 한 번에 가져오기
+# 데이터 한 번에 가져오기 (새로운 함수명 호출)
 with st.spinner("야후 파이낸스 실시간 데이터를 통합 집계 중..."):
-    df_all = get_all_financial_data(ALL_TICKERS)
+    df_all = get_all_financial_data_v2(ALL_TICKERS)
 
 if df_all.empty or "TIP" not in df_all["Ticker"].values:
     st.error("핵심 데이터 로딩에 실패했습니다. 페이지를 새로고침해 주세요.")
@@ -122,7 +123,7 @@ else:
     # ------------------ 데이터 안전 조회를 위한 사전 래핑 (IndexError 완벽 방지) ------------------
     data_dict = df_all.set_index("Ticker").to_dict(orient="index")
     
-    # TIP 데이터 추출
+    # TIP 데이터 추출 (.get을 사용하여 구조가 누락되었더라도 에러 방지)
     tip_data = data_dict.get("TIP", {})
     tip_closes = tip_data.get("raw_closes", [])
     tip_current = tip_data.get("현재가", 0.0)
