@@ -14,7 +14,7 @@ st.markdown("""
         background-color: #f8fafc;
     }
     
-    /* [피드백 반영] 상단 탭 메뉴(전략 선택 영역)를 프리미엄 그레이 세그먼트 컨트롤러로 강조 */
+    /* 상단 탭 메뉴(전략 선택 영역)를 프리미엄 그레이 세그먼트 컨트롤러로 강조 */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #e2e8f0 !important; /* 차분하고 정돈된 미디엄 그레이 배경 */
         border: 1px solid #cbd5e1 !important;
@@ -200,37 +200,64 @@ else:
     # S&P 500 실시간 배당수익률 산출
     realtime_dy = get_sp500_dividend_yield()
     
-    # --- 상단 시뮬레이션 설정바 (차분한 슬레이트 그레이 스타일 플레이트) ---
-    st.markdown("""
-        <div class="control-panel">
-            <div class="control-header">⚙️ 2026 통합 전략 제어 및 시뮬레이션 설정</div>
-            <div class="control-subheader">S&P 500 배당수익률을 직접 조절해 보세요. 시장 상태 판단에 따라 하단의 포트폴리오 비중이 역동적으로 자동 재연산됩니다. (공격 신호 기준값: 1.33% 초과)</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # 설정바 가로 배치 레이아웃
-    col_ctrl1, col_ctrl2 = st.columns([3, 1])
-    with col_ctrl1:
-        dy_input = st.slider(
-            "S&P 500 배당수익률 조절 (%)",
-            min_value=0.0,
-            max_value=5.0,
-            value=realtime_dy,
-            step=0.01
+    # ------------------ [피드백 반영] 메인 탭 선언 ------------------
+    tab_2026, tab_a, tab_b, tab_c = st.tabs([
+        "🏆 2026 통합전략", 
+        "🛡️ 전략 A", 
+        "⚡ 전략 B", 
+        "🔄 전략 C"
+    ])
+
+    # 탭별 독립 렌더링을 위한 컨테이너 할당 (컨테이너 순서를 비틀어 전략 C에서 배당률 슬라이더를 캡처한 후 최종 연산)
+    with tab_2026:
+        c_2026 = st.container()
+    with tab_a:
+        c_a = st.container()
+    with tab_b:
+        c_b = st.container()
+    with tab_c:
+        c_c = st.container()
+
+    # ==================== [피드백 핵심] 전략 C 탭 내부에서만 조절바 렌더링 ====================
+    with c_c:
+        st.header("🔄 전략 C (섹터로테이션)")
+        st.markdown(
+            "**1단계: 카나리아 신호 판단 (S&P 500 배당수익률)** \n"
+            "배당수익률이 **1.33%** 초과 시 주식 저평가로 판단하여 공격 모드, 이하일 경우 시장 과열로 판단하여 방어 모드로 진입합니다."
         )
-    with col_ctrl2:
-        dy_input_num = st.number_input(
-            "수동 수치",
-            min_value=0.0,
-            max_value=10.0,
-            value=dy_input,
-            step=0.01,
-            label_visibility="visible"
-        )
-        if dy_input_num != dy_input:
-            dy_input = dy_input_num
-            
-    is_attack_c = dy_input > 1.33
+        
+        # --- 오직 전략 C 내부에서만 조절바 및 설정 패널 노출 ---
+        st.markdown("""
+            <div class="control-panel">
+                <div class="control-header">⚙️ 전략 C 제어 및 시뮬레이션 설정</div>
+                <div class="control-subheader">S&P 500 배당수익률을 직접 조절해 보세요. 시장 상태 판단에 따라 하단의 포트폴리오 비중이 역동적으로 자동 재연산됩니다. (공격 신호 기준값: 1.33% 초과)</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col_ctrl1, col_ctrl2 = st.columns([3, 1])
+        with col_ctrl1:
+            dy_input = st.slider(
+                "S&P 500 배당수익률 조절 (%)",
+                min_value=0.0,
+                max_value=5.0,
+                value=realtime_dy,
+                step=0.01,
+                key="dy_slider"
+            )
+        with col_ctrl2:
+            dy_input_num = st.number_input(
+                "수동 수치",
+                min_value=0.0,
+                max_value=10.0,
+                value=dy_input,
+                step=0.01,
+                label_visibility="visible",
+                key="dy_num"
+            )
+            if dy_input_num != dy_input:
+                dy_input = dy_input_num
+                
+        is_attack_c = dy_input > 1.33
 
     # ==================== 각 개별 전략의 자산 배분 비중 선산출 ====================
     # [전략 A 할당 산출]
@@ -278,7 +305,7 @@ else:
         else:
             alloc_b["CASH (현금)"] = 100.0
 
-    # [전략 C 할당 산출]
+    # [전략 C 할당 산출] (탭 내부 조절바의 dy_input 수치 반영됨)
     alloc_c = {}
     if is_attack_c:
         df_off_c = df_all[df_all["Ticker"].isin(OFFENSIVE_C)].copy()
@@ -334,16 +361,9 @@ else:
             })
     df_mix = pd.DataFrame(mix_data).sort_values(by="배분 비중 (%)", ascending=False)
 
-    # ------------------ [피드백 적극 반영] 탭 가시성 극대화 ------------------
-    tab_2026, tab_a, tab_b, tab_c = st.tabs([
-        "🏆 2026 통합전략", 
-        "🛡️ 전략 A", 
-        "⚡ 전략 B", 
-        "🔄 전략 C"
-    ])
 
-    # ==================== TAB 1: 2026년 통합 혼합 전략 ====================
-    with tab_2026:
+    # ==================== TAB 1: 2026년 통합 혼합 전략 (c_2026 컨테이너에 매핑) ====================
+    with c_2026:
         st.header("🏆 2026년 통합 혼합 전략")
         st.markdown(
             "안정 지향의 **전략 A**, 고수익 레버리지의 **전략 B**, 시황 로테이션인 **전략 C**를 "
@@ -361,8 +381,9 @@ else:
         st.markdown("### 📝 2026년 통합 최종 자산 배분 비중")
         st.dataframe(df_mix, use_container_width=True, hide_index=True)
 
-    # ==================== TAB 2: 전략 A ====================
-    with tab_a:
+
+    # ==================== TAB 2: 전략 A (c_a 컨테이너에 매핑) ====================
+    with c_a:
         st.header("🛡️ 전략 A (안정형)")
         st.markdown(
             "**1단계: 카나리아 신호 판단** \n"
@@ -414,8 +435,9 @@ else:
                     s = data_dict.get(t, {}).get("A_방어스코어", 0.0)
                     st.info(f"**{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
 
-    # ==================== TAB 3: 전략 B ====================
-    with tab_b:
+
+    # ==================== TAB 3: 전략 B (c_b 컨테이너에 매핑) ====================
+    with c_b:
         st.header("⚡ 전략 B (공격형)")
         st.markdown(
             "**1단계: 카나리아 신호 판단** \n"
@@ -467,18 +489,11 @@ else:
                     s = data_dict.get(t, {}).get("B_단순모멘텀", 0.0)
                     st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 자체 모멘텀: {s:.2f}%)")
 
-    # ==================== TAB 4: 전략 C ====================
-    with tab_c:
-        st.header("🔄 전략 C (섹터로테이션)")
-        st.markdown(
-            "**1단계: 카나리아 신호 판단 (S&P 500 배당수익률)** \n"
-            "배당수익률이 **1.33%** 초과 시 주식 저평가로 판단하여 공격 모드, 이하일 경우 시장 과열로 판단하여 방어 모드로 진입합니다."
-        )
-        
-        col_c1, col_c2 = st.columns(2)
-        col_c1.metric("S&P 500 배당수익률", f"{dy_input:.2f}%")
-        col_c2.metric("기준 배당수익률", "1.33%")
-        
+
+    # ==================== TAB 4: 전략 C 결과 추가 매핑 (c_c 컨테이너에 매핑) ====================
+    with c_c:
+        # (시뮬레이션 조절바 및 카나리아 타이틀은 선언부 최상위 c_c 렌더링 블록에서 기선언됨)
+        # 하단 자산 결과들만 이 위치에서 이어서 출력
         if is_attack_c:
             st.success(f"🔥 **현재 모드: 공격 자산 모드** (배당수익률 {dy_input:.2f}% > 1.33%) - 시장 저평가 국면으로 주식을 매수합니다.")
             
