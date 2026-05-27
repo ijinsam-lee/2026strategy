@@ -4,7 +4,7 @@ import pandas as pd
 import datetime
 
 # 모바일 화면에 최적화된 레이아웃 설정
-st.set_page_config(page_title="동적 자산배분 통합 대시보드", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="동적 자산배분 대시보드", layout="centered", initial_sidebar_state="collapsed")
 
 # 프리미엄 그레이/슬레이트 톤 스타일 및 탭 선택바 강조 스타일 주입
 st.markdown("""
@@ -68,7 +68,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📈 동적 자산배분 통합 대시보드")
+st.title("📈 동적 자산배분 대시보드")
 st.caption("야후 파이낸스 실시간 데이터 기반 수시 리밸런싱 가이드 (2026년 전략 포함)")
 
 # --- 1. 자산군 정의 ---
@@ -202,7 +202,7 @@ else:
     
     # ------------------ [피드백 반영] 메인 탭 선언 ------------------
     tab_2026, tab_a, tab_b, tab_c = st.tabs([
-        "🏆 2026 통합전략", 
+        "🏆 2026 혼합전략", 
         "🛡️ 전략 A", 
         "⚡ 전략 B", 
         "🔄 전략 C"
@@ -327,7 +327,7 @@ else:
         else:
             alloc_c["CASH (현금)"] = 100.0
 
-    # ==================== 2026년 전략 (동일비중 혼합) 통합 연산 ====================
+    # ==================== 2026년 전략 (동일비중 혼합) 연산 ====================
     combined_alloc = {}
     contributions = {}
 
@@ -362,9 +362,9 @@ else:
     df_mix = pd.DataFrame(mix_data).sort_values(by="배분 비중 (%)", ascending=False)
 
 
-    # ==================== TAB 1: 2026년 통합 혼합 전략 (c_2026 컨테이너에 매핑) ====================
+    # ==================== TAB 1: 2026년 혼합 전략 (c_2026 컨테이너에 매핑) ====================
     with c_2026:
-        st.header("🏆 2026년 통합 혼합 전략")
+        st.header("🏆 2026년 혼합 전략")
         st.markdown(
             "안정 지향의 **전략 A**, 고수익 레버리지의 **전략 B**, 시황 로테이션인 **전략 C**를 "
             "각각 **$33.33\%$씩 동일 비중**으로 혼합하여 시장 전반의 변동성을 완벽하게 제어하는 2026년 추천 전략 모델입니다."
@@ -378,7 +378,7 @@ else:
         c_sig3.metric("전략C (배당수익률)", f"{dy_input:.2f}%", "공격" if is_attack_c else "방어", delta_color="inverse" if not is_attack_c else "normal")
 
         # 추천 포트폴리오 자산 리스트
-        st.markdown("### 📝 2026년 통합 최종 자산 배분 비중")
+        st.markdown("### 📝 2026년 혼합 최종 자산 배분 비중")
         st.dataframe(df_mix, use_container_width=True, hide_index=True)
 
 
