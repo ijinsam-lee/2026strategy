@@ -6,6 +6,68 @@ import datetime
 # 모바일 화면에 최적화된 레이아웃 설정
 st.set_page_config(page_title="동적 자산배분 통합 대시보드", layout="centered", initial_sidebar_state="collapsed")
 
+# 프리미엄 그레이/슬레이트 톤 스타일 및 탭 선택바 강조 스타일 주입
+st.markdown("""
+    <style>
+    /* 글로벌 배경화면 및 메인 톤 조정 */
+    .stApp {
+        background-color: #f8fafc;
+    }
+    
+    /* [피드백 반영] 상단 탭 메뉴(전략 선택 영역)를 프리미엄 그레이 세그먼트 컨트롤러로 강조 */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #e2e8f0 !important; /* 차분하고 정돈된 미디엄 그레이 배경 */
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        padding: 5px !important;
+        gap: 4px !important;
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06), 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+        margin-bottom: 20px !important;
+    }
+    
+    /* 탭 내부 개별 버튼들을 하나의 모던한 세그먼트로 구성 */
+    .stTabs [data-baseweb="tab"] {
+        background-color: transparent !important;
+        border-radius: 8px !important;
+        padding: 10px 12px !important;
+        font-weight: 800 !important;
+        font-size: 0.85rem !important;
+        color: #475569 !important; /* 세련된 다크그레이 글자색 */
+        border: none !important;
+        transition: all 0.2s ease-in-out !important;
+        flex: 1 !important; /* 모바일 화면에서 동일 가로비율 배분 */
+        text-align: center !important;
+    }
+    
+    /* [선택된 탭 강조] 딥 슬레이트 그레이 컬러로 압도적인 선택 상태 시인성 제공 */
+    .stTabs [aria-selected="true"] {
+        background-color: #1e293b !important; /* 다크 슬레이트 그레이 */
+        color: #ffffff !important; /* 선명한 화이트 텍스트 */
+        box-shadow: 0 4px 10px -2px rgba(30, 41, 59, 0.3) !important;
+    }
+    
+    /* 시뮬레이션 설정 상자도 품격 있는 뉴트럴 그레이 톤 플레이트로 교체 */
+    .control-panel {
+        background-color: #f1f5f9 !important; /* 부드러운 라이트 그레이 */
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        padding: 18px !important;
+        margin-bottom: 20px !important;
+    }
+    .control-header {
+        color: #0f172a !important; /* 차분한 블랙 계열 */
+        font-weight: 800 !important;
+        font-size: 0.98rem !important;
+        margin-bottom: 4px !important;
+    }
+    .control-subheader {
+        color: #475569 !important; /* 짙은 회색 */
+        font-size: 0.8rem !important;
+        line-height: 1.45 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("📈 동적 자산배분 통합 대시보드")
 st.caption("야후 파이낸스 실시간 데이터 기반 수시 리밸런싱 가이드 (2026년 전략 포함)")
 
@@ -29,12 +91,10 @@ ALL_TICKERS = list(set(["TIP", "SPY"] + OFFENSIVE_A + DEFENSIVE_A + OFFENSIVE_B 
 def get_sp500_dividend_yield():
     try:
         spy = yf.Ticker("SPY")
-        # 1. info API에서 직접 배당수익률 획득 시도 (있을 경우 소수점 형태로 반환됨, 예: 0.0132)
         dy = spy.info.get('dividendYield')
         if dy is not None:
             return float(dy) * 100
         
-        # 2. 실패 시 실시간 분배금 기록 기반 직접 역산 연산 (최근 1개년 배당금 합산 / 현재가)
         divs = spy.dividends
         if not divs.empty:
             utc_tz = divs.index.tz
@@ -49,14 +109,13 @@ def get_sp500_dividend_yield():
                 return (sum_divs / curr_price) * 100
     except Exception as e:
         pass
-    return 1.32  # 외부 차단 등 최악의 API 상황을 대비한 합리적인 기본값 백업
+    return 1.32  # 기본값 백업
 
-# 캐시 꼬임 방지를 위해 함수명을 get_all_financial_data_v2로 변경하여 과거 캐시 강제 무효화
+# 과거 캐시 강제 무효화를 위한 고유 버전 함수 유지
 @st.cache_data(ttl=3600)  
 def get_all_financial_data_v2(tickers):
     data_list = []
     now = datetime.datetime.now()
-    # 13개월 이상의 안정적인 데이터 확보를 위해 450일 전부터 가져옴
     start_date = (now - datetime.timedelta(days=450)).strftime('%Y-%m-%d')
     
     for ticker in tickers:
@@ -91,7 +150,7 @@ def get_all_financial_data_v2(tickers):
             
             # 전략 B용 스코어 계산 (가중평균 및 단순평균)
             score_b_off = (r1 * 12 + r3 * 4 + r6 * 2 + r12 * 1) / 19
-            score_b_def_simple = (r1 + r3 + r6 + r9 + r12) / 5  # 전략B 방어자산 마이너스 필터링용 단순 모멘텀
+            score_b_def_simple = (r1 + r3 + r6 + r9 + r12) / 5  # 전략B 방어자산 단순 모멘텀
             
             data_list.append({
                 "Ticker": ticker,
@@ -113,7 +172,7 @@ def get_all_financial_data_v2(tickers):
             
     return pd.DataFrame(data_list)
 
-# 데이터 한 번에 가져오기 (새로운 함수명 호출)
+# 데이터 실시간 가져오기
 with st.spinner("야후 파이낸스 실시간 데이터를 통합 집계 중..."):
     df_all = get_all_financial_data_v2(ALL_TICKERS)
 
@@ -123,7 +182,7 @@ else:
     # ------------------ 데이터 안전 조회를 위한 사전 래핑 (IndexError 완벽 방지) ------------------
     data_dict = df_all.set_index("Ticker").to_dict(orient="index")
     
-    # TIP 데이터 추출 (.get을 사용하여 구조가 누락되었더라도 에러 방지)
+    # TIP 데이터 추출
     tip_data = data_dict.get("TIP", {})
     tip_closes = tip_data.get("raw_closes", [])
     tip_current = tip_data.get("현재가", 0.0)
@@ -141,16 +200,36 @@ else:
     # S&P 500 실시간 배당수익률 산출
     realtime_dy = get_sp500_dividend_yield()
     
-    # 사이드바를 통한 배당률 시뮬레이션 지원
-    st.sidebar.header("⚙️ 실시간 시뮬레이터 옵션")
-    dy_input = st.sidebar.number_input(
-        "S&P 500 배당수익률 (%) 수동 조절",
-        min_value=0.0,
-        max_value=10.0,
-        value=realtime_dy,
-        step=0.01,
-        help="S&P 500의 배당수익률을 임의로 변경하여 모의 시뮬레이션을 해볼 수 있습니다."
-    )
+    # --- 상단 시뮬레이션 설정바 (차분한 슬레이트 그레이 스타일 플레이트) ---
+    st.markdown("""
+        <div class="control-panel">
+            <div class="control-header">⚙️ 2026 통합 전략 제어 및 시뮬레이션 설정</div>
+            <div class="control-subheader">S&P 500 배당수익률을 직접 조절해 보세요. 시장 상태 판단에 따라 하단의 포트폴리오 비중이 역동적으로 자동 재연산됩니다. (공격 신호 기준값: 1.33% 초과)</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # 설정바 가로 배치 레이아웃
+    col_ctrl1, col_ctrl2 = st.columns([3, 1])
+    with col_ctrl1:
+        dy_input = st.slider(
+            "S&P 500 배당수익률 조절 (%)",
+            min_value=0.0,
+            max_value=5.0,
+            value=realtime_dy,
+            step=0.01
+        )
+    with col_ctrl2:
+        dy_input_num = st.number_input(
+            "수동 수치",
+            min_value=0.0,
+            max_value=10.0,
+            value=dy_input,
+            step=0.01,
+            label_visibility="visible"
+        )
+        if dy_input_num != dy_input:
+            dy_input = dy_input_num
+            
     is_attack_c = dy_input > 1.33
 
     # ==================== 각 개별 전략의 자산 배분 비중 선산출 ====================
@@ -255,12 +334,12 @@ else:
             })
     df_mix = pd.DataFrame(mix_data).sort_values(by="배분 비중 (%)", ascending=False)
 
-    # ------------------ 탭 구성 (2026년 전략을 첫 번째로 배치) ------------------
+    # ------------------ [피드백 적극 반영] 탭 가시성 극대화 ------------------
     tab_2026, tab_a, tab_b, tab_c = st.tabs([
-        "🏆 2026년 통합 혼합 전략", 
-        "🛡️ 전략 A (안정형)", 
-        "⚡ 전략 B (공격형)", 
-        "🔄 전략 C (섹터로테이션)"
+        "🏆 2026 통합전략", 
+        "🛡️ 전략 A", 
+        "⚡ 전략 B", 
+        "🔄 전략 C"
     ])
 
     # ==================== TAB 1: 2026년 통합 혼합 전략 ====================
