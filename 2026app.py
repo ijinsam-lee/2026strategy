@@ -230,7 +230,7 @@ else:
         st.markdown("""
             <div class="control-panel">
                 <div class="control-header">⚙️ 전략 C 제어 및 시뮬레이션 설정</div>
-                <div class="control-subheader">S&P 500 배당수익률을 직접 조절해 보세요. 시장 상태 판단에 따라 하단의 포트폴리오 비중이 역동적으로 자동 재연산됩니다. (공격 신호 기준값: 1.33% 초과)</div>
+                <div class="control-subheader">S&P 500 배당수익률을 직접 조절해 보세요. /배당수익률 조회 사이트 https://en.macromicro.me/series/1635/us-sp500-dividend-yield /조정값에 따라 하단의 포트폴리오 비중이 역동적으로 자동 재연산됩니다. (공격 신호 기준값: 1.33% 초과)</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -378,7 +378,7 @@ else:
         c_sig3.metric("전략C (배당수익률)", f"{dy_input:.2f}%", "공격" if is_attack_c else "방어", delta_color="inverse" if not is_attack_c else "normal")
 
         # 추천 포트폴리오 자산 리스트
-        st.markdown("### 📝 2026년 혼합 최종 자산 배분 비중")
+        st.markdown("### 🎯 2026년 혼합 자산 배분 비중")
         st.dataframe(df_mix, use_container_width=True, hide_index=True)
 
 
