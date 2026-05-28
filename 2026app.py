@@ -79,19 +79,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 1. 데이터 가져오기 (시황판용: 업로드하셨던 관심종목 데이터로 복원)
+# 1. 데이터 가져오기 (시황판용: 기존 정통 시황 종목 복원)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800)  # 30분 캐싱
 def get_market_data():
     tickers = {
-        "코스피 지수": "^KS11",
-        "코스닥 지수": "^KQ11",
-        "삼성전자": "005930.KS",
-        "SK하이닉스": "000660.KS",
-        "원/달러 환율": "USDKRW=X",
-        "엔비디아 (NVDA)": "NVDA",
-        "애플 (AAPL)": "AAPL",
-        "테슬라 (TSLA)": "TSLA"
+        "S&P 500 (SPY)": "SPY",
+        "나스닥 100 (QQQ)": "QQQ",
+        "다우 존스 (DIA)": "DIA",
+        "러셀 2000 (IWM)": "IWM",
+        "미 장기채 (TLT)": "TLT",
+        "금 (GLD)": "GLD",
+        "원유 (USO)": "USO",
+        "비트코인 (BTC-USD)": "BTC-USD"
     }
     
     data = {}
@@ -279,9 +279,16 @@ def fetch_spy_dividends(start_date, end_date):
     try:
         spy = yf.Ticker("SPY")
         divs = spy.dividends
-        if isinstance(divs.index, pd.DatetimeIndex) and divs.index.tz is not None:
+        if divs is None or divs.empty:
+            return pd.Series(dtype=float)
+            
+        # index 및 시간대(tz) 검증 방어 로직 강화
+        if hasattr(divs, 'index') and hasattr(divs.index, 'tz') and divs.index.tz is not None:
             divs.index = divs.index.tz_localize(None)
-        divs_filtered = divs[(divs.index >= start_date) & (divs.index <= end_date)]
+            
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date)
+        divs_filtered = divs[(divs.index >= start_dt) & (divs.index <= end_dt)]
         return divs_filtered
     except Exception as e:
         return pd.Series(dtype=float)
@@ -374,7 +381,7 @@ st.title("🛡️ 동적 자산배분 및 실시간 시황 대시보드")
 st.caption("실시간 금융 데이터 기반 동적 자산배분 및 단순 모멘텀 ETF 랭킹 (Powered by yfinance)")
 
 # -----------------------------------------------------------------------------
-# 3.1. 실시간 시황판 출력
+# 3.1. 실시간 시황판 출력 (기존 정통 글로벌 시황 레이아웃 완벽 유지)
 # -----------------------------------------------------------------------------
 st.subheader("📊 실시간 주요 지수 시황")
 market_data = get_market_data()
@@ -389,22 +396,10 @@ if market_data:
                 color = "#ef4444" if item["change"] >= 0 else "#3b82f6"
                 sign = "+" if item["change"] >= 0 else ""
                 
-                # 티커 종류에 따라 시각에 알맞은 환율/원화/달러/포인트 포맷팅 유연하게 적용
-                ticker = item["ticker"]
-                price = item["price"]
-                if ticker.endswith(".KS") or ticker.endswith(".KQ"):
-                    formatted_price = f"₩{price:,.0f}" # 한국 주식 (원화, 소수점 없음)
-                elif ticker == "USDKRW=X":
-                    formatted_price = f"₩{price:,.1f}" # 환율 (원화, 소수점 1자리)
-                elif ticker.startswith("^"):
-                    formatted_price = f"{price:,.2f} pt" # 지수 (포인트)
-                else:
-                    formatted_price = f"${price:,.2f}" # 해외 자산 (달러화, 소수점 2자리)
-                
                 st.markdown(f"""
                     <div class="metric-card">
                         <div style="font-size: 11px; color: #64748b; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{name}</div>
-                        <div style="font-size: 17px; font-weight: 700; color: #0f172a; margin-top: 4px;">{formatted_price}</div>
+                        <div style="font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 4px;">${item["price"]:.2f}</div>
                         <div style="font-size: 12px; font-weight: 600; color: {color}; margin-top: 2px;">
                             {sign}{item["change"]:.2f}%
                         </div>
@@ -423,8 +418,8 @@ st.markdown("---")
 st.subheader("🏆 미국 상장 ETF 단순 모멘텀 랭킹")
 st.markdown("""
     <p style="font-size: 13px; color: #475569; margin-top: -10px; line-height: 1.5;">
-    <b>필터링 조건:</b> ① 1배수 정방향 | ② 주식형/원자재 위주 | ③ AUM 1억 달러($100M) 이상<br/>
-    <b>랭킹 기준:</b> 단기 변동성 노이즈를 제어하기 위한 <b>1-3-6-12개월 단순 모멘텀 스코어</b> (각 기간 수익률의 산술 평균값)
+    요청하신 필터링 조건(① 1배수 정방향, ② 주식형/원자재 위주, ③ AUM 1억 달러 이상)을 유지한 상태에서, 단기 노이즈를 줄이고 추세의 강도를 측정하는 <b>1-3-6-12개월 단순 모멘텀 스코어</b>(각 기간 수익률의 산술 평균)를 반영하여 상위 20개 랭킹을 산출했습니다.<br/>
+    현재 시장(2026년 5월)은 연초 급등했던 일부 테마가 단기 조정을 겪고, 반대로 에너지 및 인프라 밸류체인이 단기(1, 3개월)와 장기(12개월) 모두에서 고른 상승세를 보이며 모멘텀 합산 점수에서 최상위권을 차지하고 있습니다.
     </p>
 """, unsafe_allow_html=True)
 
@@ -464,17 +459,17 @@ if not rankings_df.empty:
     )
     
     # 랭킹 시사점 요약 아코디언 추가
-    with st.expander("💡 1-3-6-12개월 단순 모멘텀 랭킹의 입체적 시사점"):
+    with st.expander("💡 단순 모멘텀(1-3-6-12) 랭킹의 입체적 시사점"):
         st.markdown("""
-        * **전통 에너지(XLE)와 우라늄(URA)의 가파른 전진**:  
-          단순 YTD(연초 대비) 랭킹만 보았을 때 반도체에 다소 가려져 있던 전통 에너지 섹터(XLE) 및 우라늄(URA)이 단기(1~3개월) 및 장기(12개월) 균형 추세 강도 측정에서 압도적으로 우세한 점수를 받았습니다. 이는 자금 유입의 결이 '정보 기술' 단일 테마에서 '실물 인프라 및 전력 유틸리티' 체인으로 활발히 이동 중임을 단적으로 드러냅니다.
-        * **중장기 추세의 절대 강자, 반도체(SMH/SOXX)**:  
-          최근 단기 숨고르기 국면에도 불구하고, 12개월 누적 성과가 워낙 확고하여 평균 모멘텀 스코어 기준 여전히 최상위 티어를 수성하고 있습니다.
-        * **신흥국 IT 공급망(한국/대만)의 단기 추세 반등**:  
-          EWY, FLKR, FLTW 등 글로벌 IT 제조 및 반도체 공급망을 장악한 아시아 신흥국 ETF들의 순위 반등은 단기 수급 전환의 유용한 모멘텀 트레이딩 시그널을 전달해 줍니다.
+        * **에너지(XLE)와 우라늄(URA)의 전진**:  
+          YTD(연초 대비) 랭킹만 볼 때는 반도체에 가려져 있던 전통 에너지(XLE)와 우라늄(URA)이 1-3-6-12개월 평균 모멘텀 스코어에서 매우 높은 점수를 받았습니다. 이는 최근 1~3개월 사이 단기 상승 탄력이 기술주보다 매서웠음을 뜻하며, 시장의 주도권이 '정보기술'에서 '인프라 및 에너지 자원'으로 확장되고 있음을 보여줍니다.
+        * **장기 추세의 제왕, 반도체**:  
+          최근 1개월간 기술주 변동성이 있었음에도 불구하고, SMH와 SOXX는 12개월 누적 수익률이 워낙 압도적이기 때문에 평균값(모멘텀 스코어) 기준에서도 여전히 부동의 1, 2위를 지키고 있습니다.
+        * **신흥국(한국/대만)의 단기 모멘텀 부각**:  
+          EWY나 FLTW 같은 아시아 테크 공급망 국가들의 순위가 상승한 것은 최근 1~3개월간의 숏텀(Short-term) 모멘텀이 미국 지수 대비 강하게 작용했기 때문입니다.
         
         ---
-        ⚠️ **투자 팁**: 단순 모멘텀 스코어는 가격의 단순 높낮이가 아닌, *'현재 어느 자산군에 자본이 연속적이고 강하게 흘러 들어가는가(추세 강도)'*를 추종하기 위한 최적의 정량적 프레임워크입니다.
+        ⚠️ **투자 팁**: 이러한 단순 모멘텀 스코어는 주가가 단순히 높은 것뿐만 아니라 **"현재 어느 섹터로 돈이 지속적으로 유입(추세 유지)되고 있는가"**를 판단하는 데 매우 유용한 정량적 기준이 됩니다. 장기 적립식보다 추세 추종(Momentum Trading) 성향의 포트폴리오를 구성하실 때 이 순위를 참고하시면 좋습니다.
         """)
 else:
     st.error("모멘텀 랭킹 테이블을 구성하는 도중 데이터 수집 장애가 발생했습니다.")
@@ -526,9 +521,12 @@ with st.spinner("백테스트 데이터를 다운로드하는 중..."):
     spy_divs_hist = fetch_spy_dividends(start_dt, end_dt)
 
 # 안전하게 시간대(Timezone) 정보 제거 및 인덱스 정밀 검증
-if not hist_prices.empty and isinstance(hist_prices.index, pd.DatetimeIndex):
-    if hist_prices.index.tz is not None:
-        hist_prices.index = hist_prices.index.tz_localize(None)
+if not hist_prices.empty and hasattr(hist_prices, 'index') and isinstance(hist_prices.index, pd.DatetimeIndex):
+    try:
+        if hist_prices.index.tz is not None:
+            hist_prices.index = hist_prices.index.tz_localize(None)
+    except Exception:
+        pass
 
 with tab1:
     st.subheader("📌 오늘 자 기준 병합 포트폴리오 신호")
@@ -581,9 +579,12 @@ with tab2:
         try:
             df_month_ends = hist_prices.resample('ME').last()
         except ValueError:
-            df_month_ends = hist_prices.resample('M').last()
+            try:
+                df_month_ends = hist_prices.resample('M').last()
+            except Exception:
+                df_month_ends = hist_prices
             
-        last_6_months = df_month_ends.index[-6:].tolist()
+        last_6_months = df_month_ends.index[-6:].tolist() if len(df_month_ends) >= 6 else df_month_ends.index.tolist()
         if hist_prices.index[-1] not in last_6_months:
             if (hist_prices.index[-1] - last_6_months[-1]).days > 3:
                 last_6_months.append(hist_prices.index[-1])
