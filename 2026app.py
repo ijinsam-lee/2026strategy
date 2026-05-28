@@ -79,19 +79,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 1. 데이터 가져오기 (시황판용)
+# 1. 데이터 가져오기 (시황판용: 업로드하셨던 관심종목 데이터로 복원)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800)  # 30분 캐싱
 def get_market_data():
     tickers = {
-        "S&P 500 (SPY)": "SPY",
-        "나스닥 100 (QQQ)": "QQQ",
-        "다우 존스 (DIA)": "DIA",
-        "러셀 2000 (IWM)": "IWM",
-        "미 장기채 (TLT)": "TLT",
-        "금 (GLD)": "GLD",
-        "원유 (USO)": "USO",
-        "비트코인 (BTC-USD)": "BTC-USD"
+        "코스피 지수": "^KS11",
+        "코스닥 지수": "^KQ11",
+        "삼성전자": "005930.KS",
+        "SK하이닉스": "000660.KS",
+        "원/달러 환율": "USDKRW=X",
+        "엔비디아 (NVDA)": "NVDA",
+        "애플 (AAPL)": "AAPL",
+        "테슬라 (TSLA)": "TSLA"
     }
     
     data = {}
@@ -179,12 +179,22 @@ def calculate_etf_rankings():
     # 실시간 데이터 로드 시도
     try:
         df = yf.download(tickers, start=start_date, end=end_date, progress=False)
-        if 'Adj Close' in df.columns:
-            prices = df['Adj Close']
-        elif 'Close' in df.columns:
-            prices = df['Close']
+        
+        # MultiIndex 구조와 SingleIndex 구조에 모두 대응하는 강력한 컬럼 추출 로직
+        if isinstance(df.columns, pd.MultiIndex):
+            if 'Adj Close' in df.columns.levels[0]:
+                prices = df['Adj Close']
+            elif 'Close' in df.columns.levels[0]:
+                prices = df['Close']
+            else:
+                prices = df
         else:
-            prices = df
+            if 'Adj Close' in df.columns:
+                prices = df['Adj Close']
+            elif 'Close' in df.columns:
+                prices = df['Close']
+            else:
+                prices = df
     except Exception:
         prices = pd.DataFrame()
         
@@ -269,7 +279,7 @@ def fetch_spy_dividends(start_date, end_date):
     try:
         spy = yf.Ticker("SPY")
         divs = spy.dividends
-        if divs.index.tz is not None:
+        if isinstance(divs.index, pd.DatetimeIndex) and divs.index.tz is not None:
             divs.index = divs.index.tz_localize(None)
         divs_filtered = divs[(divs.index >= start_date) & (divs.index <= end_date)]
         return divs_filtered
@@ -379,10 +389,22 @@ if market_data:
                 color = "#ef4444" if item["change"] >= 0 else "#3b82f6"
                 sign = "+" if item["change"] >= 0 else ""
                 
+                # 티커 종류에 따라 시각에 알맞은 환율/원화/달러/포인트 포맷팅 유연하게 적용
+                ticker = item["ticker"]
+                price = item["price"]
+                if ticker.endswith(".KS") or ticker.endswith(".KQ"):
+                    formatted_price = f"₩{price:,.0f}" # 한국 주식 (원화, 소수점 없음)
+                elif ticker == "USDKRW=X":
+                    formatted_price = f"₩{price:,.1f}" # 환율 (원화, 소수점 1자리)
+                elif ticker.startswith("^"):
+                    formatted_price = f"{price:,.2f} pt" # 지수 (포인트)
+                else:
+                    formatted_price = f"${price:,.2f}" # 해외 자산 (달러화, 소수점 2자리)
+                
                 st.markdown(f"""
                     <div class="metric-card">
                         <div style="font-size: 11px; color: #64748b; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{name}</div>
-                        <div style="font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 4px;">${item["price"]:.2f}</div>
+                        <div style="font-size: 17px; font-weight: 700; color: #0f172a; margin-top: 4px;">{formatted_price}</div>
                         <div style="font-size: 12px; font-weight: 600; color: {color}; margin-top: 2px;">
                             {sign}{item["change"]:.2f}%
                         </div>
@@ -410,7 +432,7 @@ with st.spinner("미국 상장 ETF들의 실시간 모멘텀 스코어를 연산
     rankings_df = calculate_etf_rankings()
 
 if not rankings_df.empty:
-    # 모바일/데스크톱 가독성을 위해 개수 선택 버튼 배치
+    # 모바일/데스크톱 가독성을 위해 개수 선택 배치
     view_mode = st.radio(
         "출력 범위 선택", 
         ["상위 10개 대표 상품 보기", "상위 20개 전체 리스트 보기"], 
@@ -422,7 +444,7 @@ if not rankings_df.empty:
     df_to_show = rankings_df.head(limit).copy()
     
     # 0원(Mock 가격) 처리 및 예쁜 가독성을 위한 표 데이터 포맷 적용
-    df_to_show["현재가"] = df_to_show["현재가"].apply(lambda x: f"${x:.2f}" if x > 0 else "데이터 준비중")
+    df_to_show["현재가"] = df_to_show["현재가"].apply(lambda x: f"${x:.2f}" if isinstance(x, (int, float)) and x > 0 else "데이터 준비중")
     
     format_rules = {
         "1M 수익률": "{:+.2f}%",
@@ -503,9 +525,10 @@ with st.spinner("백테스트 데이터를 다운로드하는 중..."):
     hist_prices = fetch_historical_prices(all_required_tickers, start_dt, end_dt)
     spy_divs_hist = fetch_spy_dividends(start_dt, end_dt)
 
-# 인덱스 시간대 제거
-if hist_prices.index.tz is not None:
-    hist_prices.index = hist_prices.index.tz_localize(None)
+# 안전하게 시간대(Timezone) 정보 제거 및 인덱스 정밀 검증
+if not hist_prices.empty and isinstance(hist_prices.index, pd.DatetimeIndex):
+    if hist_prices.index.tz is not None:
+        hist_prices.index = hist_prices.index.tz_localize(None)
 
 with tab1:
     st.subheader("📌 오늘 자 기준 병합 포트폴리오 신호")
@@ -554,8 +577,12 @@ with tab2:
     st.write("최근 6개월간 각 월말 영업일 기준 신호 현황과 포트폴리오 변화 이력을 확인합니다.")
     
     if not hist_prices.empty:
-        # 월말 날짜 추출
-        df_month_ends = hist_prices.resample('ME').last()
+        # 월말 날짜 추출 (Pandas 구버전 및 신버전 호환용 예외 처리)
+        try:
+            df_month_ends = hist_prices.resample('ME').last()
+        except ValueError:
+            df_month_ends = hist_prices.resample('M').last()
+            
         last_6_months = df_month_ends.index[-6:].tolist()
         if hist_prices.index[-1] not in last_6_months:
             if (hist_prices.index[-1] - last_6_months[-1]).days > 3:
@@ -566,6 +593,7 @@ with tab2:
         for idx, date in enumerate(last_6_months):
             target_col = st.container()
             
+            # 히스토리 시그널 역동 연산
             hist_portfolio, sig_a, sig_b, sig_c, dy_c = compute_historical_portfolio_at_month_end(
                 hist_prices, spy_divs_hist, date,
                 OFFENSIVE_A, DEFENSIVE_A, OFFENSIVE_B, DEFENSIVE_B, OFFENSIVE_C, DEFENSIVE_C
