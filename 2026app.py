@@ -79,7 +79,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 1. 데이터 가져오기 (시황판용: 기존 정통 시황 종목 복원)
+# 1. 데이터 가져오기 (시황판용)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=1800)  # 30분 캐싱
 def get_market_data():
@@ -115,150 +115,6 @@ def get_market_data():
         except Exception as e:
             data[name] = None
     return data
-
-# -----------------------------------------------------------------------------
-# 1.5. 미국 상장 ETF 모멘텀 랭킹 데이터 산출 및 연산 함수
-# -----------------------------------------------------------------------------
-@st.cache_data(ttl=3600)  # 1시간 캐싱으로 로딩 속도 최적화
-def calculate_etf_rankings():
-    # 필터링 조건을 통과한 20개 핵심 ETF 티커
-    tickers = ["SMH", "SOXX", "FTXL", "URA", "NLR", "XLE", "PSI", "EWY", "AIRR", "DXJ", 
-               "FLKR", "FLTW", "XSD", "QTUM", "SPMO", "XME", "VGT", "FTEC", "IYW", "XLK"]
-    
-    # 각 ETF 매핑 정보
-    etf_metadata = {
-        "SMH": {"name": "VanEck Semiconductor ETF", "driver": "12개월(+140%)과 최근 분기 성과가 모두 압도적인 원톱"},
-        "SOXX": {"name": "iShares Semiconductor ETF", "driver": "SMH와 함께 전 기간 우상향 추세를 완벽히 유지 중"},
-        "FTXL": {"name": "First Trust Nasdaq Semiconductor", "driver": "나스닥 반도체 기반으로 단기 1~3개월 탄력이 매우 강함"},
-        "URA": {"name": "Global X Uranium ETF", "driver": "AI 전력난 수혜로 3개월 및 6개월 모멘텀 스코어 급상승"},
-        "NLR": {"name": "VanEck Uranium and Nuclear ETF", "driver": "안정적인 유틸리티 성격에 단기 모멘텀이 더해져 상위권 안착"},
-        "XLE": {"name": "Energy Select Sector SPDR ETF", "driver": "유가 안정 및 전통 에너지 수요 회복으로 1~3개월 점수 대폭 상승"},
-        "PSI": {"name": "Invesco Semiconductors ETF", "driver": "반도체 장비주 중심으로 6개월, 12개월 장기 모멘텀 견고"},
-        "EWY": {"name": "iShares MSCI South Korea ETF", "driver": "최근 1~3개월 외인 자금 유입으로 단기 모멘텀 가속화"},
-        "AIRR": {"name": "First Trust RBA American Industrial", "driver": "미국 내 공장 리쇼어링 테마로 6개월 전후 추세가 가장 안정적"},
-        "DXJ": {"name": "WisdomTree Japan Hedged Equity", "driver": "엔화 흐름과 주주환원 정책 모멘텀이 12개월 내내 꾸준히 유지"},
-        "FLKR": {"name": "Franklin FTSE Korea ETF", "driver": "EWY와 동반하여 최근 3개월 모멘텀 스코어 급등"},
-        "FLTW": {"name": "Franklin FTSE Taiwan ETF", "driver": "대만 파운드리 공급망 강세로 장·단기 점수 고르게 획득"},
-        "XSD": {"name": "SPDR S&P Semiconductor ETF", "driver": "중소형 반도체주 반등으로 1개월 모멘텀이 상위권 견인"},
-        "QTUM": {"name": "Defiance Quantum ETF", "driver": "차세대 연산 인프라 테마로 6개월 모멘텀 우수"},
-        "SPMO": {"name": "Invesco S&P 500 Momentum ETF", "driver": "지수 내 모멘텀 리밸런싱을 통해 전 기간 상위권 추세 추종"},
-        "XME": {"name": "SPDR S&P Metals & Mining ETF", "driver": "원자재 및 인프라 금속 수요 확대로 최근 3개월 모멘텀 부각"},
-        "VGT": {"name": "Vanguard Information Technology", "driver": "빅테크 비중 확대로 12개월 장기 스코어가 하방을 지지"},
-        "FTEC": {"name": "Fidelity MSCI Information Tech", "driver": "VGT와 유사한 흐름으로 장기 모멘텀 안정권 유지"},
-        "IYW": {"name": "iShares U.S. Technology ETF", "driver": "미국 정보기술 섹터 전반의 탄탄한 추세 지속"},
-        "XLK": {"name": "Technology Select Sector SPDR", "driver": "애플/MS 비중 조절 과정에서 단기 1개월 숨고르기 후 반등 중"}
-    }
-    
-    # 2026년 5월 가상 시황 기준 모크(Fallback) 모멘텀 지수 설정 (API 다운 혹은 시간 제한용 대비)
-    mock_base = {
-        "SMH": {"r1": 5.4, "r3": 12.1, "r6": 48.6, "r12": 140.2, "p": 272.4},
-        "SOXX": {"r1": 4.8, "r3": 11.2, "r6": 44.2, "r12": 122.5, "p": 245.1},
-        "FTXL": {"r1": 6.1, "r3": 13.5, "r6": 38.2, "r12": 105.4, "p": 95.8},
-        "URA": {"r1": 9.2, "r3": 18.4, "r6": 32.1, "r12": 45.3, "p": 34.2},
-        "NLR": {"r1": 7.5, "r3": 14.2, "r6": 25.4, "r12": 39.8, "p": 88.5},
-        "XLE": {"r1": 10.1, "r3": 15.6, "r6": 18.2, "r12": 22.4, "p": 98.3},
-        "PSI": {"r1": 3.2, "r3": 9.8, "r6": 39.4, "r12": 110.1, "p": 168.2},
-        "EWY": {"r1": 8.4, "r3": 12.3, "r6": 14.5, "r12": 18.1, "p": 72.4},
-        "AIRR": {"r1": 4.1, "r3": 8.2, "r6": 24.5, "r12": 48.2, "p": 124.5},
-        "DXJ": {"r1": 2.2, "r3": 5.4, "r6": 19.8, "r12": 52.3, "p": 115.1},
-        "FLKR": {"r1": 8.5, "r3": 12.1, "r6": 13.8, "r12": 16.9, "p": 26.5},
-        "FLTW": {"r1": 5.2, "r3": 9.4, "r6": 21.2, "r12": 45.6, "p": 48.2},
-        "XSD": {"r1": 7.1, "r3": 5.2, "r6": 22.4, "r12": 82.5, "p": 235.4},
-        "QTUM": {"r1": 3.8, "r3": 7.1, "r6": 23.1, "r12": 50.4, "p": 62.1},
-        "SPMO": {"r1": 2.5, "r3": 6.8, "r6": 24.2, "r12": 48.5, "p": 94.3},
-        "XME": {"r1": 6.5, "r3": 10.2, "r6": 12.1, "r12": 15.4, "p": 64.8},
-        "VGT": {"r1": 1.2, "r3": 4.5, "r6": 20.1, "r12": 54.2, "p": 585.3},
-        "FTEC": {"r1": 1.1, "r3": 4.3, "r6": 19.8, "r12": 53.8, "p": 165.4},
-        "IYW": {"r1": 1.3, "r3": 4.1, "r6": 21.5, "r12": 51.2, "p": 142.1},
-        "XLK": {"r1": -0.5, "r3": 3.2, "r6": 18.4, "r12": 49.5, "p": 222.1}
-    }
-    
-    end_date = datetime.datetime.now()
-    start_date = end_date - datetime.timedelta(days=385) # 12개월 수익률 확보를 위해 여유기간 지정
-    
-    # 실시간 데이터 로드 시도
-    try:
-        df = yf.download(tickers, start=start_date, end=end_date, progress=False)
-        
-        # MultiIndex 구조와 SingleIndex 구조에 모두 대응하는 강력한 컬럼 추출 로직
-        if isinstance(df.columns, pd.MultiIndex):
-            if 'Adj Close' in df.columns.levels[0]:
-                prices = df['Adj Close']
-            elif 'Close' in df.columns.levels[0]:
-                prices = df['Close']
-            else:
-                prices = df
-        else:
-            if 'Adj Close' in df.columns:
-                prices = df['Adj Close']
-            elif 'Close' in df.columns:
-                prices = df['Close']
-            else:
-                prices = df
-    except Exception:
-        prices = pd.DataFrame()
-        
-    results = []
-    
-    for ticker in tickers:
-        meta = etf_metadata[ticker]
-        has_data = False
-        
-        if not prices.empty and ticker in prices.columns:
-            t_prices = prices[ticker].dropna()
-            if len(t_prices) >= 20:
-                has_data = True
-                p_now = t_prices.iloc[-1]
-                
-                # 각 기간별(1, 3, 6, 12개월 전) 가장 가까운 실거래일 가격 추출
-                p_1m = t_prices.asof(t_prices.index[-1] - datetime.timedelta(days=30))
-                p_3m = t_prices.asof(t_prices.index[-1] - datetime.timedelta(days=90))
-                p_6m = t_prices.asof(t_prices.index[-1] - datetime.timedelta(days=180))
-                p_12m = t_prices.asof(t_prices.index[-1] - datetime.timedelta(days=365))
-                
-                # 데이터 누락 방지용 대안 지정
-                p_1m = p_1m if pd.notna(p_1m) else t_prices.iloc[0]
-                p_3m = p_3m if pd.notna(p_3m) else t_prices.iloc[0]
-                p_6m = p_6m if pd.notna(p_6m) else t_prices.iloc[0]
-                p_12m = p_12m if pd.notna(p_12m) else t_prices.iloc[0]
-                
-                # 단순 수익률 계산 (%)
-                r1 = ((p_now / p_1m) - 1) * 100
-                r3 = ((p_now / p_3m) - 1) * 100
-                r6 = ((p_now / p_6m) - 1) * 100
-                r12 = ((p_now / p_12m) - 1) * 100
-                
-                # 1-3-6-12개월 단순 모멘텀 스코어 (수익률의 산술 평균)
-                score = (r1 + r3 + r6 + r12) / 4.0
-        
-        # 실시간 연산 실패 시 모크 데이터 반영으로 안정성 보강
-        if not has_data:
-            mock = mock_base[ticker]
-            r1 = mock["r1"]
-            r3 = mock["r3"]
-            r6 = mock["r6"]
-            r12 = mock["r12"]
-            score = (r1 + r3 + r6 + r12) / 4.0
-            p_now = mock["p"]
-            
-        results.append({
-            "티커": ticker,
-            "ETF 명칭": meta["name"],
-            "현재가": p_now,
-            "1M 수익률": r1,
-            "3M 수익률": r3,
-            "6M 수익률": r6,
-            "12M 수익률": r12,
-            "모멘텀 스코어": score,
-            "주요 모멘텀 드라이버 (2026년 현재)": meta["driver"]
-        })
-        
-    # 모멘텀 스코어 기준 내림차순 정렬 및 순위 인덱스 부여
-    res_df = pd.DataFrame(results)
-    res_df = res_df.sort_values(by="모멘텀 스코어", ascending=False).reset_index(drop=True)
-    res_df.index = res_df.index + 1
-    res_df.index.name = "순위"
-    return res_df
 
 # -----------------------------------------------------------------------------
 # 2. 동적 자산배분 엔진 및 백테스트 관련 함수들
@@ -378,7 +234,7 @@ def compute_historical_portfolio_at_month_end(df_prices, spy_divs_hist, target_d
 # -----------------------------------------------------------------------------
 
 st.title("🛡️ 동적 자산배분 및 실시간 시황 대시보드")
-st.caption("실시간 금융 데이터 기반 동적 자산배분 및 단순 모멘텀 ETF 랭킹 (Powered by yfinance)")
+st.caption("실시간 금융 데이터 기반 동적 자산배분 (Powered by yfinance)")
 
 # -----------------------------------------------------------------------------
 # 3.1. 실시간 시황판 출력 (기존 정통 글로벌 시황 레이아웃 완벽 유지)
@@ -408,72 +264,6 @@ if market_data:
             col_idx += 1
 else:
     st.info("실시간 시황 데이터를 불러오는 중이거나 장외 시간입니다.")
-
-
-# -----------------------------------------------------------------------------
-# 3.2. 미국 상장 ETF 모멘텀 랭킹 (요청 추가 항목 - 시황판 바로 아래 배치)
-# -----------------------------------------------------------------------------
-st.write("") 
-st.markdown("---")
-st.subheader("🏆 미국 상장 ETF 단순 모멘텀 랭킹")
-st.markdown("""
-    <p style="font-size: 13px; color: #475569; margin-top: -10px; line-height: 1.5;">
-    요청하신 필터링 조건(① 1배수 정방향, ② 주식형/원자재 위주, ③ AUM 1억 달러 이상)을 유지한 상태에서, 단기 노이즈를 줄이고 추세의 강도를 측정하는 <b>1-3-6-12개월 단순 모멘텀 스코어</b>(각 기간 수익률의 산술 평균)를 반영하여 상위 20개 랭킹을 산출했습니다.<br/>
-    현재 시장(2026년 5월)은 연초 급등했던 일부 테마가 단기 조정을 겪고, 반대로 에너지 및 인프라 밸류체인이 단기(1, 3개월)와 장기(12개월) 모두에서 고른 상승세를 보이며 모멘텀 합산 점수에서 최상위권을 차지하고 있습니다.
-    </p>
-""", unsafe_allow_html=True)
-
-with st.spinner("미국 상장 ETF들의 실시간 모멘텀 스코어를 연산하고 있습니다..."):
-    rankings_df = calculate_etf_rankings()
-
-if not rankings_df.empty:
-    # 모바일/데스크톱 가독성을 위해 개수 선택 배치
-    view_mode = st.radio(
-        "출력 범위 선택", 
-        ["상위 10개 대표 상품 보기", "상위 20개 전체 리스트 보기"], 
-        horizontal=True, 
-        label_visibility="collapsed"
-    )
-    
-    limit = 10 if "10" in view_mode else 20
-    df_to_show = rankings_df.head(limit).copy()
-    
-    # 0원(Mock 가격) 처리 및 예쁜 가독성을 위한 표 데이터 포맷 적용
-    df_to_show["현재가"] = df_to_show["현재가"].apply(lambda x: f"${x:.2f}" if isinstance(x, (int, float)) and x > 0 else "데이터 준비중")
-    
-    format_rules = {
-        "1M 수익률": "{:+.2f}%",
-        "3M 수익률": "{:+.2f}%",
-        "6M 수익률": "{:+.2f}%",
-        "12M 수익률": "{:+.2f}%",
-        "모멘텀 스코어": "{:+.2f}%"
-    }
-    
-    # 데이터프레임 스타일링 및 하이라이트 추가
-    st.dataframe(
-        df_to_show.style.format(format_rules).background_gradient(
-            subset=["모멘텀 스코어"], cmap="Blues"
-        ),
-        use_container_width=True,
-        height=380 if limit == 10 else 650
-    )
-    
-    # 랭킹 시사점 요약 아코디언 추가
-    with st.expander("💡 단순 모멘텀(1-3-6-12) 랭킹의 입체적 시사점"):
-        st.markdown("""
-        * **에너지(XLE)와 우라늄(URA)의 전진**:  
-          YTD(연초 대비) 랭킹만 볼 때는 반도체에 가려져 있던 전통 에너지(XLE)와 우라늄(URA)이 1-3-6-12개월 평균 모멘텀 스코어에서 매우 높은 점수를 받았습니다. 이는 최근 1~3개월 사이 단기 상승 탄력이 기술주보다 매서웠음을 뜻하며, 시장의 주도권이 '정보기술'에서 '인프라 및 에너지 자원'으로 확장되고 있음을 보여줍니다.
-        * **장기 추세의 제왕, 반도체**:  
-          최근 1개월간 기술주 변동성이 있었음에도 불구하고, SMH와 SOXX는 12개월 누적 수익률이 워낙 압도적이기 때문에 평균값(모멘텀 스코어) 기준에서도 여전히 부동의 1, 2위를 지키고 있습니다.
-        * **신흥국(한국/대만)의 단기 모멘텀 부각**:  
-          EWY나 FLTW 같은 아시아 테크 공급망 국가들의 순위가 상승한 것은 최근 1~3개월간의 숏텀(Short-term) 모멘텀이 미국 지수 대비 강하게 작용했기 때문입니다.
-        
-        ---
-        ⚠️ **투자 팁**: 이러한 단순 모멘텀 스코어는 주가가 단순히 높은 것뿐만 아니라 **"현재 어느 섹터로 돈이 지속적으로 유입(추세 유지)되고 있는가"**를 판단하는 데 매우 유용한 정량적 기준이 됩니다. 장기 적립식보다 추세 추종(Momentum Trading) 성향의 포트폴리오를 구성하실 때 이 순위를 참고하시면 좋습니다.
-        """)
-else:
-    st.error("모멘텀 랭킹 테이블을 구성하는 도중 데이터 수집 장애가 발생했습니다.")
-
 
 # -----------------------------------------------------------------------------
 # 4. 전략 세부 설정 (사이드바)
