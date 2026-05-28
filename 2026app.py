@@ -105,7 +105,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📈 동적 자산배분 대시보드")
-st.caption("야후 파이낸스 실시간 데이터 기반 수시 리밸런싱 가이드 (2026년 전략 포함)")
+st.caption("야후 파이낸스 실시간 데이터 기반 수시 리밸런싱 가이드 (2026년 전략 및 실시간 미국 ETF 랭킹 포함)")
 
 # --- 1. 자산군 정의 ---
 # 전략A 자산군 (최신 리스트)
@@ -120,10 +120,10 @@ DEFENSIVE_B = ["DOG", "RWM", "TBF"]
 OFFENSIVE_C = ["FDN", "LIT", "SMH", "XLE"]  # 4대 주도 섹터
 DEFENSIVE_C = ["GLD", "PDBC", "OILK"]       # 3대 원자재 방어자산
 
-# 중복 없는 전체 티커 추출
-ALL_TICKERS = list(set(["TIP", "SPY"] + OFFENSIVE_A + DEFENSIVE_A + OFFENSIVE_B + DEFENSIVE_B + OFFENSIVE_C + DEFENSIVE_C))
+# 중복 없는 전체 티커 추출 (미국 ETF 랭킹 비교용 인기 자산군 SCHD, JEPI, TQQQ, SOXL, DIA, IWM, XLF 추가)
+ALL_TICKERS = list(set(["TIP", "SPY"] + OFFENSIVE_A + DEFENSIVE_A + OFFENSIVE_B + DEFENSIVE_B + OFFENSIVE_C + DEFENSIVE_C + ["SCHD", "JEPI", "TQQQ", "SOXL", "DIA", "IWM", "XLF"]))
 
-# 관심매크로 지표 정의 및 심볼 매핑 (표준 외환코드 USDCNY=X, USDJPY=X로 조치)
+# 관심매크로 지표 정의 및 심볼 매핑
 MACRO_TICKERS = {
     "달러/원": "USDKRW=X",
     "달러/중국 위안": "USDCNY=X",
@@ -233,8 +233,6 @@ def get_sp500_dividend_yield():
         dy = spy.info.get('dividendYield')
         if dy is not None:
             dy_val = float(dy)
-            # yfinance 라이브러리 및 API 환경에 따라 소수(예: 0.0103) 혹은 백분율(예: 1.03)을 다르게 반환하므로
-            # 0.15 (15%) 미만인 경우 소수로 판단하여 100을 곱해 퍼센트 단위를 맞춥니다.
             if dy_val < 0.15:
                 return dy_val * 100
             return dy_val
@@ -526,6 +524,7 @@ def compute_historical_portfolio_at_month_end(prices_dict, spy_divs, target_date
     clean_portfolio = {t: round(w, 2) for t, w in mixed_portfolio.items() if w > 0.01}
     return clean_portfolio, is_attack_a_hist, is_attack_b_hist, is_attack_c_hist, dy_val
 
+
 # 데이터 실시간 가져오기
 with st.spinner("야후 파이낸스 실시간 데이터를 통합 집계 중..."):
     df_all = get_all_financial_data_v2(ALL_TICKERS)
@@ -555,12 +554,13 @@ else:
     realtime_dy = get_sp500_dividend_yield()
     is_attack_c = realtime_dy > 1.33
     
-    # ------------------ 메인 탭 선언 ------------------
-    tab_2026, tab_a, tab_b, tab_c = st.tabs([
+    # ------------------ 메인 탭 선언 (5번째 탭 '미국 ETF 랭킹' 추가) ------------------
+    tab_2026, tab_a, tab_b, tab_c, tab_rank = st.tabs([
         "🏆 2026 혼합전략", 
         "🛡️ 전략 A", 
         "⚡ 전략 B", 
-        "🔄 전략 C"
+        "🔄 전략 C",
+        "🇺🇸 미국 ETF 랭킹"
     ])
 
     # 탭별 독립 렌더링을 위한 컨테이너 할당
@@ -572,6 +572,8 @@ else:
         c_b = st.container()
     with tab_c:
         c_c = st.container()
+    with tab_rank:
+        c_rank = st.container()
 
     # ==================== 각 개별 전략의 자산 배분 비중 선산출 ====================
     # [전략 A 할당 산출]
@@ -675,6 +677,7 @@ else:
             })
     df_mix = pd.DataFrame(mix_data).sort_values(by="배분 비중 (%)", ascending=False)
 
+
     # ==================== TAB 1: 2026년 혼합 전략 (c_2026 컨테이너에 매핑) ====================
     with c_2026:
         st.header("🏆 2026년 혼합 전략")
@@ -690,7 +693,7 @@ else:
             2026년 전략은 성격이 다른 3가지 동적 자산배분 전략을 동일 비중으로 혼합하여 **극대화된 안정성**과 **풍부한 수익성**의 황금 균형을 달성합니다.
             
             * **전략A (33.33%)**: TIP 현재가/11M 신호 기반 안정형 포트폴리오 (낮은 MDD)
-            * **전략B (33.33%)**: TIP 모멘텀 신호 기반 레버리지 공격형 포트폴리오 (고수익 집중)
+            * **전략B (33.33%)**: TIP 모멘텀 신호 기반 공격형 포트폴리오 (고수익 집중)
             * **전략C (33.33%)**: S&P 500 배당수익률 기반 주도 섹터 로테이션 포트폴리오 (중간형)
             
             ### 📈 실제 백테스트 지표 (2026혼합전략.jpg 실측 데이터 반영)
@@ -792,7 +795,7 @@ else:
         with table_col:
             st.dataframe(df_mix, use_container_width=True, hide_index=True)
 
-        # --- 신규 추가: 실시간 리밸런싱 및 목표 수량 계산기 ---
+        # --- 실시간 리밸런싱 및 목표 수량 계산기 ---
         st.markdown("### 💰 실시간 리밸런싱 목표 수량 계산기")
         st.markdown("현재 환율과 실시간 주가를 기반으로, 설정한 원화 예산에 필요한 **자산별 목표 환전 달러** 및 **실제 매수 주수**를 계산해 드립니다.")
         
@@ -842,6 +845,7 @@ else:
                 })
                 
             st.dataframe(pd.DataFrame(calc_data), use_container_width=True, hide_index=True)
+
 
     # ==================== TAB 2: 전략 A (c_a 컨테이너에 매핑) ====================
     with c_a:
@@ -924,6 +928,7 @@ else:
                     s = data_dict.get(t, {}).get("A_방어스코어", 0.0)
                     st.info(f"**{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
 
+
     # ==================== TAB 3: 전략 B (c_b 컨테이너에 매핑) ====================
     with c_b:
         st.header("⚡ 전략 B (공격형)")
@@ -1005,6 +1010,7 @@ else:
                     p = data_dict.get(t, {}).get("현재가", 0.0)
                     s = data_dict.get(t, {}).get("B_단순모멘텀", 0.0)
                     st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 자체 모멘텀: {s:.2f}%)")
+
 
     # ==================== TAB 4: 전략 C (c_c 컨테이너에 매핑) ====================
     with c_c:
@@ -1093,6 +1099,74 @@ else:
                     p = data_dict.get(t, {}).get("현재가", 0.0)
                     s = data_dict.get(t, {}).get("A_방어스코어", 0.0)
                     st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
+
+
+    # ==================== TAB 5: 미국 ETF 랭킹 (c_rank 컨테이너에 매핑) ====================
+    with c_rank:
+        st.header("🇺🇸 실시간 미국 ETF 랭킹")
+        st.markdown(
+            "대시보드에 등록된 주요 지수, 주도 섹터, 레버리지 및 배당형 ETF들의 실시간 모멘텀과 "
+            "수익률을 역동적으로 추적하여 정렬하는 인텔리전트 멀티-팩터 랭킹 시스템입니다."
+        )
+        
+        # 정렬 기준 설정 라디오 버튼 배치
+        sort_by = st.radio(
+            "🏆 정렬 기준 선택",
+            options=["종합 모멘텀 스코어", "1개월 수익률", "3개월 수익률", "6개월 수익률", "12개월 수익률"],
+            horizontal=True
+        )
+        
+        # 데이터프레임 가공
+        rank_data = []
+        for ticker, metrics in data_dict.items():
+            if ticker == "TIP":
+                continue  # 물가연동채는 카나리아 지표이므로 순위에서 제외
+                
+            rank_data.append({
+                "티커 (Ticker)": ticker,
+                "현재가 ($)": f"${metrics['현재가']:.2f}",
+                "1개월 수익률 (%)": metrics["1M"],
+                "3개월 수익률 (%)": metrics["3M"],
+                "6개월 수익률 (%)": metrics["6M"],
+                "12개월 수익률 (%)": metrics["12M"],
+                "종합 모멘텀 스코어": metrics["A_공격스코어"]
+            })
+            
+        df_ranking = pd.DataFrame(rank_data)
+        
+        # 정렬 기준 매핑
+        sort_column_map = {
+            "종합 모멘텀 스코어": "종합 모멘텀 스코어",
+            "1개월 수익률": "1개월 수익률 (%)",
+            "3개월 수익률": "3개월 수익률 (%)",
+            "6개월 수익률": "6개월 수익률 (%)",
+            "12개월 수익률": "12개월 수익률 (%)"
+        }
+        
+        selected_sort_col = sort_column_map[sort_by]
+        df_ranking = df_ranking.sort_values(by=selected_sort_col, ascending=False).reset_index(drop=True)
+        df_ranking.index += 1  # 1등부터 순위 지정
+        
+        # 상위 5개 ETF 시각화 차트
+        st.markdown(f"### 📊 Top 5 Performers ({sort_by} 기준)")
+        df_top5 = df_ranking.head(5).copy()
+        
+        try:
+            import altair as alt
+            top_chart = alt.Chart(df_top5).mark_bar(cornerRadiusEnd=6).encode(
+                x=alt.X(f"{selected_sort_col}:Q", title=sort_by),
+                y=alt.Y("티커 (Ticker):N", sort='-x', title="ETF 티커"),
+                color=alt.Color("티커 (Ticker):N", scale=alt.Scale(scheme='tableau10'), legend=None),
+                tooltip=["티커 (Ticker)", "현재가 ($)", selected_sort_col]
+            ).properties(height=200)
+            st.altair_chart(top_chart, use_container_width=True)
+        except Exception:
+            st.bar_chart(df_top5.set_index("티커 (Ticker)")[selected_sort_col])
+            
+        # 전체 랭킹 테이블 출력
+        st.markdown("### 🏆 실시간 모멘텀 순위표")
+        st.dataframe(df_ranking, use_container_width=True)
+
 
     # ==================== 대시보드 공통 하단: 지난 12개월(최근 1년)간의 월말 기준 리밸런싱 역사 백테스트 ====================
     with st.spinner("지난 12개월(최근 1년) 월말 포트폴리오 데이터를 로딩 및 역동 연산 중..."):
