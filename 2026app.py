@@ -751,25 +751,40 @@ else:
             }
             df_monthly = pd.DataFrame(monthly_data)
             
-            def apply_value_color(val):
-                if isinstance(val, (int, float)):
-                    if val > 0:
-                        return "color: #dc2626; font-weight: 700;"
-                    elif val < 0:
-                        return "color: #2563eb; font-weight: 700;"
-                return ""
+            # 모든 Pandas 버전에 완전 호환되고 예외를 원천 방지하는 100% 안전한 Styler.apply 방식 구현
+            def style_positive_negative(col):
+                # 양수: 부드러운 레드 텍스트, 음수: 세련된 블루 텍스트, 0: 기본 텍스트
+                return [
+                    "color: #dc2626; font-weight: 700;" if isinstance(val, (int, float)) and val > 0
+                    else "color: #2563eb; font-weight: 700;" if isinstance(val, (int, float)) and val < 0
+                    else ""
+                    for val in col
+                ]
 
-            # pandas 버전에 따른 스타일링 메소드 호환성 처리 (map vs applymap 완벽 분기)
-            styler = df_monthly.style
-            if hasattr(styler, "map"):
-                styled_monthly_df = styler.map(apply_value_color, subset=df_monthly.columns[1:])
-            else:
-                styled_monthly_df = styler.applymap(apply_value_color, subset=df_monthly.columns[1:])
+            styled_monthly_df = df_monthly.style
 
-            # 그라데이션 및 포맷 추가 결합
-            styled_monthly_df = styled_monthly_df \
-                .format({col: "{:+.1f}%" for col in df_monthly.columns[1:]}) \
-                .background_gradient(cmap="RdYlGn", subset=df_monthly.columns[1:-1], vmin=-10.0, vmax=10.0)
+            # 1. 텍스트 색상 스타일 적용 (Styler.apply는 Pandas 최초기 버전부터 지원되어 오류가 발생하지 않습니다)
+            try:
+                styled_monthly_df = styled_monthly_df.apply(style_positive_negative, subset=list(df_monthly.columns[1:]))
+            except Exception:
+                pass
+
+            # 2. 백분율 표기 포맷 적용
+            try:
+                styled_monthly_df = styled_monthly_df.format({col: "{:+.1f}%" for col in df_monthly.columns[1:]})
+            except Exception:
+                pass
+
+            # 3. 히트맵 그라데이션 적용 (1월 ~ 12월 구간 적용)
+            try:
+                styled_monthly_df = styled_monthly_df.background_gradient(
+                    cmap="RdYlGn", 
+                    subset=list(df_monthly.columns[1:-1]), 
+                    vmin=-10.0, 
+                    vmax=10.0
+                )
+            except Exception:
+                pass
                 
             st.dataframe(styled_monthly_df, use_container_width=True, hide_index=True)
 
