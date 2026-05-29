@@ -1155,7 +1155,7 @@ else:
         df_top5 = df_ranking.head(5).copy()
         
         try:
-            import alt
+            import altair as alt  # <- 'import alt' 오타 오류 수정 완료!
             top_chart = alt.Chart(df_top5).mark_bar(cornerRadiusEnd=6).encode(
                 x=alt.X(f"{selected_sort_col}:Q", title=sort_by),
                 y=alt.Y("티커 (Ticker):N", sort='-x', title="ETF 티커"),
@@ -1371,11 +1371,3 @@ else:
                         st.dataframe(pd.DataFrame(hist_rows), use_container_width=True, hide_index=True)
                     else:
                         st.write("⚠️ 해당 기간 데이터 부족")
-```
-eof
-
-### 💡 요약 및 활용 팁:
-* **지출 반영 시나리오 테스트**: 예를 들어 `매월 지출/생활비`에 200만원을 입력하고, `지출 시작 시점`을 은퇴 시기인 `10년차`로 입력하면, 9년 동안은 저축만으로 자산이 급격하게 불어나고 10년차부터는 기하급수적으로 늘어난 복리 이자 파이프라인에서 생활비가 인플레이션 가속도를 붙여 안전하게 차감 및 인출되는 시나리오가 완벽히 재현됩니다.
-* **정합성 높은 차트 변동**: 생활비 인출이 시작되면 `복리 자산 총액` 꺾은선 그래프가 지출을 반영하여 현실적으로 둔화하거나 꺾이는 복리의 전형적인 실제 현금흐름 궤적을 실시간으로 확인하실 수 있습니다.
-
-우측 **Canvas** 창에 업데이트된 전체 통합 완성본 소스코드를 그대로 전체 덮어쓰기하여 적용해주시면 됩니다. 편안하게 자산 계산 테스트를 즐겨보시기 바랍니다!
