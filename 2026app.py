@@ -2,21 +2,10 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import datetime
-import altair as alt  # 에러 방지를 위해 Altair 라이브러리를 최상단 전역 공간으로 올렸습니다.
+import altair as alt
 
 # 모바일 화면에 최적화된 레이아웃 설정
 st.set_page_config(page_title="동적 자산배분 대시보드", layout="centered", initial_sidebar_state="collapsed")
-
-# 연도별 백테스트 상세 성과 데이터 정의 (NameError 방지 및 안정적인 전역 참조를 위해 최상단에 배치)
-df_annual_raw = pd.DataFrame({
-    "연도": [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
-    "수익률 (%)": [21.0, 31.3, 75.3, 42.1, -2.3, 38.6, 58.7, 39.5]
-})
-
-df_annual_display = pd.DataFrame({
-    "연도": ["2018년", "2019년", "2020년", "2021년", "2022년", "2023년", "2024년", "2025년", "평균 (CAGR)"],
-    "누적 연수익률": ["+21.0%", "+31.3%", "+75.3%", "+42.1%", "-2.3%", "+38.6%", "+58.7%", "+39.5%", "+38.7%"]
-})
 
 # 프리미엄 그레이/슬레이트 톤 스타일 및 탭 선택바 강조 스타일 주입
 st.markdown("""
@@ -690,104 +679,6 @@ else:
             3. **3단계 (동일비중 결합)**: 선정된 개별 전략의 종목 비중을 환산하여 **매월 1일 최종 리밸런싱**을 실행합니다.
             """)
 
-        # --- 연간 & 월간 백테스트 상세 수익률표 ---
-        with st.expander("📊 2026 혼합전략 연간 & 월간 상세 백테스트 수익률표 (실측 데이터)", expanded=True):
-            st.markdown("#### 📅 연도별 성과 지표 (Annual Performance)")
-            
-            # 연도별 성과 바 차트 시각화 (안정적인 전역 'alt' 및 'df_annual_raw' 이용)
-            try:
-                # 막대 베이스 생성
-                bars = alt.Chart(df_annual_raw).mark_bar(cornerRadiusEnd=6).encode(
-                    x=alt.X("연도:O", title="백테스트 연도", axis=alt.Axis(labelAngle=0)),
-                    y=alt.Y("수익률 (%):Q", title="연수익률 (%)"),
-                    color=alt.condition(
-                        alt.datum["수익률 (%)"] > 0,
-                        alt.value("#ef4444"),  # 이익 구간: 부드러운 레드
-                        alt.value("#3b82f6")   # 손실 구간: 차분한 블루
-                    ),
-                    tooltip=[alt.Tooltip("연도:O", title="연도"), alt.Tooltip("수익률 (%):Q", title="연수익률", format=".1f")]
-                )
-                
-                # 수치 텍스트 레이블 생성 (양수/음수에 맞춰서 위/아래 자동 배치)
-                text = bars.mark_text(
-                    align='center',
-                    baseline=alt.condition(alt.datum["수익률 (%)"] > 0, alt.value('bottom'), alt.value('top')),
-                    dy=alt.condition(alt.datum["수익률 (%)"] > 0, alt.value(-6), alt.value(6)),
-                    fontWeight='bold',
-                    fontSize=11,
-                    color='#1e293b'
-                ).encode(
-                    text=alt.Text("수익률 (%):Q", format="+.1f")
-                )
-                
-                # 차트 레이어 병합 연산
-                annual_chart = (bars + text).properties(height=240)
-                st.altair_chart(annual_chart, use_container_width=True)
-            except Exception as e:
-                st.info("시각화 뷰 로딩 완료")
-                st.bar_chart(df_annual_raw.set_index("연도")["수익률 (%)"])
-                
-            st.dataframe(df_annual_display, use_container_width=True, hide_index=True)
-            
-            # 월별 수익률 데이터프레임 생성
-            st.markdown("#### 📊 월간 상세 성과 히트맵 (Monthly Performance Matrix)")
-            st.caption("※ 각 달의 실적에 따라 강도 높은 성과는 초록색, 하방 방어 및 조정 구간은 황색/적색으로 맵핑됩니다.")
-            
-            monthly_data = {
-                "연도": ["2018년", "2019년", "2020년", "2021년", "2022년", "2023년", "2024년", "2025년"],
-                "1월": [2.5, 1.8, 3.2, -1.5, -2.1, 4.5, 2.8, 3.1],
-                "2월": [-1.2, 2.1, -0.8, 3.5, 1.2, -0.5, 3.2, 2.0],
-                "3월": [3.1, 0.5, -8.5, 2.1, 0.5, 2.8, 1.5, 1.8],
-                "4월": [1.5, 3.2, 9.8, -0.8, -3.2, -1.2, -2.1, 4.2],
-                "5월": [2.8, 1.2, 5.4, 4.2, 1.8, 3.5, 4.8, 1.5],
-                "6월": [-0.5, 4.5, 6.2, 1.5, -2.5, 2.1, 3.5, -0.8],
-                "7월": [4.2, 2.8, 4.1, 3.2, 5.1, 1.8, -1.2, 3.5],
-                "8월": [1.8, -1.5, 3.8, 1.2, -1.8, -2.5, 2.1, 1.2],
-                "9월": [-2.1, 3.1, -4.5, -3.1, 4.2, 5.1, 3.2, 4.8],
-                "10월": [-3.5, 2.5, 2.1, 5.4, 3.5, -1.8, 6.2, 2.5],
-                "11월": [5.2, 4.1, 11.2, 3.8, -1.2, 6.5, 7.1, 5.2],
-                "12월": [6.1, 5.2, 8.5, 12.1, -5.8, 11.2, 15.4, 6.8],
-                "연간": [21.0, 31.3, 75.3, 42.1, -2.3, 38.6, 58.7, 39.5]
-            }
-            df_monthly = pd.DataFrame(monthly_data)
-            
-            # 모든 Pandas 버전에 완전 호환되고 예외를 원천 방지하는 100% 안전한 Styler.apply 방식 구현
-            def style_positive_negative(col):
-                # 양수: 부드러운 레드 텍스트, 음수: 세련된 블루 텍스트, 0: 기본 텍스트
-                return [
-                    "color: #dc2626; font-weight: 700;" if isinstance(val, (int, float)) and val > 0
-                    else "color: #2563eb; font-weight: 700;" if isinstance(val, (int, float)) and val < 0
-                    else ""
-                    for val in col
-                ]
-
-            styled_monthly_df = df_monthly.style
-
-            # 1. 텍스트 색상 스타일 적용 (Styler.apply는 Pandas 최초기 버전부터 지원되어 오류가 발생하지 않습니다)
-            try:
-                styled_monthly_df = styled_monthly_df.apply(style_positive_negative, subset=list(df_monthly.columns[1:]))
-            except Exception:
-                pass
-
-            # 2. 백분율 표기 포맷 적용
-            try:
-                styled_monthly_df = styled_monthly_df.format({col: "{:+.1f}%" for col in df_monthly.columns[1:]})
-            except Exception:
-                pass
-
-            # 3. 히트맵 그라데이션 적용 (1월 ~ 12월 구간 적용)
-            try:
-                styled_monthly_df = styled_monthly_df.background_gradient(
-                    cmap="RdYlGn", 
-                    subset=list(df_monthly.columns[1:-1]), 
-                    vmin=-10.0, 
-                    vmax=10.0
-                )
-            except Exception:
-                pass
-                
-            st.dataframe(styled_monthly_df, use_container_width=True, hide_index=True)
-
         # 3대 전략 카나리아 시그널 요약
         st.markdown("### 🚦 실시간 카나리아 신호 요약")
         c_sig1, c_sig2, c_sig3 = st.columns(3)
@@ -1002,12 +893,12 @@ else:
             
             ### 📈 실제 백테스트 지표 (전략b.jpg 실측 데이터 반영)
             """)
-            col_b1, col_b2, col_b3, col_b4, col_b5 = st.columns(5)
-            col_b1.metric("연환산 수익률 (CAGR)", "36.4%")
-            col_b2.metric("최대 낙폭 (MDD)", "-27.8%")
-            col_b3.metric("샤프 지수 (Sharpe)", "1.35")
-            col_b4.metric("소티노 지수 (Sortino)", "2.44")
-            col_b5.metric("연 변동성 (Volatility)", "25.9%")
+            col_perf1, col_perf2, col_perf3, col_perf4, col_perf5 = st.columns(5)
+            col_perf1.metric("연환산 수익률 (CAGR)", "36.4%")
+            col_perf2.metric("최대 낙폭 (MDD)", "-27.8%")
+            col_perf3.metric("샤프 지수 (Sharpe)", "1.35")
+            col_perf4.metric("소티노 지수 (Sortino)", "2.44")
+            col_perf5.metric("연 변동성 (Volatility)", "25.9%")
             
             st.markdown("""
             ### 📝 모멘텀 가중평균 공식
