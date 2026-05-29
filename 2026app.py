@@ -759,7 +759,15 @@ else:
                         return "color: #2563eb; font-weight: 700;"
                 return ""
 
-            styled_monthly_df = df_monthly.style.map(apply_value_color, subset=df_monthly.columns[1:]) \
+            # pandas 버전에 따른 스타일링 메소드 호환성 처리 (map vs applymap 완벽 분기)
+            styler = df_monthly.style
+            if hasattr(styler, "map"):
+                styled_monthly_df = styler.map(apply_value_color, subset=df_monthly.columns[1:])
+            else:
+                styled_monthly_df = styler.applymap(apply_value_color, subset=df_monthly.columns[1:])
+
+            # 그라데이션 및 포맷 추가 결합
+            styled_monthly_df = styled_monthly_df \
                 .format({col: "{:+.1f}%" for col in df_monthly.columns[1:]}) \
                 .background_gradient(cmap="RdYlGn", subset=df_monthly.columns[1:-1], vmin=-10.0, vmax=10.0)
                 
