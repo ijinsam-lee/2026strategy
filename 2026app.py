@@ -719,7 +719,7 @@ else:
         with st.expander("📊 2026 혼합전략 연간 & 월간 상세 백테스트 수익률표 (실측 데이터)", expanded=True):
             st.markdown("#### 📅 연도별 성과 지표 (Annual Performance)")
             
-            # 연도별 데이터프레임 생성
+            # 연도별 데이터프레임 생성 (NameError 방지를 위해 최상단에 안정적으로 배치)
             df_annual_raw = pd.DataFrame({
                 "연도": [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
                 "수익률 (%)": [21.0, 31.3, 75.3, 42.1, -2.3, 38.6, 58.7, 39.5]
@@ -730,21 +730,38 @@ else:
                 "누적 연수익률": ["+21.0%", "+31.3%", "+75.3%", "+42.1%", "-2.3%", "+38.6%", "+58.7%", "+39.5%", "+38.7%"]
             })
             
-            # 연도별 성과 바 차트 시각화
+            # 연도별 성과 바 차트 시각화 (수치 레이블 추가 기능 고도화 구현)
             try:
                 import altair as alt
-                annual_chart = alt.Chart(df_annual_raw).mark_bar(cornerRadiusEnd=6).encode(
+                # 막대 베이스 생성
+                bars = alt.Chart(df_annual_raw).mark_bar(cornerRadiusEnd=6).encode(
                     x=alt.X("연도:O", title="백테스트 연도", axis=alt.Axis(labelAngle=0)),
                     y=alt.Y("수익률 (%):Q", title="연수익률 (%)"),
                     color=alt.condition(
                         alt.datum["수익률 (%)"] > 0,
-                        alt.value("#ef4444"),  # 이익 구간: 신뢰성 있는 레드
-                        alt.value("#3b82f6")   # 손실 구간: 방어적인 블루
+                        alt.value("#ef4444"),  # 이익 구간: 부드러운 레드
+                        alt.value("#3b82f6")   # 손실 구간: 차분한 블루
                     ),
                     tooltip=[alt.Tooltip("연도:O", title="연도"), alt.Tooltip("수익률 (%):Q", title="연수익률", format=".1f")]
-                ).properties(height=200)
+                )
+                
+                # 수치 텍스트 레이블 생성 (양수/음수에 맞춰서 자동 배치)
+                text = bars.mark_text(
+                    align='center',
+                    baseline=alt.condition(alt.datum["수익률 (%)"] > 0, alt.value('bottom'), alt.value('top')),
+                    dy=alt.condition(alt.datum["수익률 (%)"] > 0, alt.value(-6), alt.value(6)),
+                    fontWeight='bold',
+                    fontSize=11,
+                    color='#1e293b'
+                ).encode(
+                    text=alt.Text("수익률 (%):Q", format="+.1f")
+                )
+                
+                # 차트 합체 연산
+                annual_chart = (bars + text).properties(height=240)
                 st.altair_chart(annual_chart, use_container_width=True)
-            except Exception:
+            except Exception as e:
+                st.info(f"정밀 시각화 로딩 대기 중... ({e})")
                 st.bar_chart(df_annual_raw.set_index("연도")["수익률 (%)"])
                 
             st.dataframe(df_annual_display, use_container_width=True, hide_index=True)
