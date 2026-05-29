@@ -920,6 +920,63 @@ else:
                 
             st.dataframe(pd.DataFrame(calc_data), use_container_width=True, hide_index=True)
 
+        # ==================== 월말 기준 리밸런싱 포트폴리오 역사 (최근 1년) ====================
+        # 사용자 요청에 따라 "2026 혼합전략" 탭 내부 최하단으로 해당 섹션을 강제 한정 이식하였습니다.
+        st.write("")
+        with st.spinner("지난 12개월(최근 1년) 월말 포트폴리오 데이터를 로딩 및 역동 연산 중..."):
+            hist_prices, spy_divs_hist = get_historical_simulation_data(ALL_TICKERS)
+            
+        if hist_prices and "SPY" in hist_prices:
+            st.markdown("---")
+            st.markdown("### 📅 월말 기준 리밸런싱 포트폴리오 역사 (최근 1년)")
+            st.caption("매월 최종 영업일 마감 데이터를 기준으로 실시간 모멘텀과 시그널을 연산하여, 익월 1일 아침 리밸런싱 시 적용되는 혼합 포트폴리오 구성 비중입니다.")
+            
+            spy_series = hist_prices["SPY"]
+            df_spy_dates = spy_series.to_frame()
+            df_spy_dates['year'] = df_spy_dates.index.year
+            df_spy_dates['month'] = df_spy_dates.index.month
+            
+            month_ends = df_spy_dates.groupby(['year', 'month']).apply(lambda x: x.index[-1]).tolist()
+            
+            now = datetime.datetime.now()
+            completed_month_ends = [d for d in month_ends if not (d.year == now.year and d.month == now.month)]
+            completed_12_months = completed_month_ends[-12:]
+            completed_12_months.reverse() 
+            
+            col_h1, col_h2 = st.columns(2)
+            for idx, date in enumerate(completed_12_months):
+                target_col = col_h1 if idx % 2 == 0 else col_h2
+                
+                hist_portfolio, sig_a, sig_b, sig_c, dy_c = compute_historical_portfolio_at_month_end(
+                    hist_prices, spy_divs_hist, date,
+                    OFFENSIVE_A, DEFENSIVE_A, OFFENSIVE_B, DEFENSIVE_B, OFFENSIVE_C, DEFENSIVE_C
+                )
+                
+                date_str = date.strftime("%Y년 %m월 %d일")
+                sig_text_a = "🟢 공격" if sig_a else "🛡️ 방어"
+                sig_text_b = "🟢 공격" if sig_b else "🛡️ 방어"
+                sig_text_c = "🟢 공격" if sig_c else "🛡️ 방어"
+                
+                with target_col:
+                    with st.expander(f"📅 {date_str} 마감 기준 포트폴리오"):
+                        sm1, sm2, sm3 = st.columns(3)
+                        with sm1:
+                            st.caption("전략A 신호")
+                            st.markdown(f"**{sig_text_a}**")
+                        with sm2:
+                            st.caption("전략B 신호")
+                            st.markdown(f"**{sig_text_b}**")
+                        with sm3:
+                            st.caption("전략C 신호")
+                            st.markdown(f"**{sig_text_c}**<br/><small>({dy_c:.2f}%)</small>", unsafe_allow_html=True)
+                        
+                        st.markdown("**포트폴리오 비중:**")
+                        hist_rows = [{"자산명(Ticker)": k, "배분비중 (%)": f"{v:.2f}%"} for k, v in hist_portfolio.items()]
+                        if hist_rows:
+                            st.dataframe(pd.DataFrame(hist_rows), use_container_width=True, hide_index=True)
+                        else:
+                            st.write("⚠️ 해당 기간 데이터 부족")
+
 
     # ==================== TAB 2: 전략 A ====================
     with c_a:
@@ -1357,59 +1414,3 @@ else:
             df_display[col] = df_display[col].apply(format_krw)
         
         st.dataframe(df_display, use_container_width=True)
-
-
-    # ==================== 대시보드 공통 하단 ====================
-    with st.spinner("지난 12개월(최근 1년) 월말 포트폴리오 데이터를 로딩 및 역동 연산 중..."):
-        hist_prices, spy_divs_hist = get_historical_simulation_data(ALL_TICKERS)
-        
-    if hist_prices and "SPY" in hist_prices:
-        st.markdown("---")
-        st.markdown("### 📅 월말 기준 리밸런싱 포트폴리오 역사 (최근 1년)")
-        st.caption("매월 최종 영업일 마감 데이터를 기준으로 실시간 모멘텀과 시그널을 연산하여, 익월 1일 아침 리밸런싱 시 적용되는 혼합 포트폴리오 구성 비중입니다.")
-        
-        spy_series = hist_prices["SPY"]
-        df_spy_dates = spy_series.to_frame()
-        df_spy_dates['year'] = df_spy_dates.index.year
-        df_spy_dates['month'] = df_spy_dates.index.month
-        
-        month_ends = df_spy_dates.groupby(['year', 'month']).apply(lambda x: x.index[-1]).tolist()
-        
-        now = datetime.datetime.now()
-        completed_month_ends = [d for d in month_ends if not (d.year == now.year and d.month == now.month)]
-        completed_12_months = completed_month_ends[-12:]
-        completed_12_months.reverse() 
-        
-        col_h1, col_h2 = st.columns(2)
-        for idx, date in enumerate(completed_12_months):
-            target_col = col_h1 if idx % 2 == 0 else col_h2
-            
-            hist_portfolio, sig_a, sig_b, sig_c, dy_c = compute_historical_portfolio_at_month_end(
-                hist_prices, spy_divs_hist, date,
-                OFFENSIVE_A, DEFENSIVE_A, OFFENSIVE_B, DEFENSIVE_B, OFFENSIVE_C, DEFENSIVE_C
-            )
-            
-            date_str = date.strftime("%Y년 %m월 %d일")
-            sig_text_a = "🟢 공격" if sig_a else "🛡️ 방어"
-            sig_text_b = "🟢 공격" if sig_b else "🛡️ 방어"
-            sig_text_c = "🟢 공격" if sig_c else "🛡️ 방어"
-            
-            with target_col:
-                with st.expander(f"📅 {date_str} 마감 기준 포트폴리오"):
-                    sm1, sm2, sm3 = st.columns(3)
-                    with sm1:
-                        st.caption("전략A 신호")
-                        st.markdown(f"**{sig_text_a}**")
-                    with sm2:
-                        st.caption("전략B 신호")
-                        st.markdown(f"**{sig_text_b}**")
-                    with sm3:
-                        st.caption("전략C 신호")
-                        st.markdown(f"**{sig_text_c}**<br/><small>({dy_c:.2f}%)</small>", unsafe_allow_html=True)
-                    
-                    st.markdown("**포트폴리오 비중:**")
-                    hist_rows = [{"자산명(Ticker)": k, "배분비중 (%)": f"{v:.2f}%"} for k, v in hist_portfolio.items()]
-                    if hist_rows:
-                        st.dataframe(pd.DataFrame(hist_rows), use_container_width=True, hide_index=True)
-                    else:
-                        st.write("⚠️ 해당 기간 데이터 부족")
