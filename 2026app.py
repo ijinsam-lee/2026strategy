@@ -649,7 +649,7 @@ else:
     with c_2026:
         st.header("🏆 2026년 혼합 전략")
         st.markdown(
-            "안정 지향의 **전략 A**, 고수익 레버리지의 **전략 B**, 시황 로테이션인 **전략 C**를 "
+            "안정 지향의 **전략 A**, 고수익 레버리지 of **전략 B**, 시황 로테이션인 **전략 C**를 "
             "각각 **$33.33\%$씩 동일 비중**으로 혼합하여 시장 전반의 변동성을 완벽하게 제어하는 2026년 추천 전략 모델입니다."
         )
 
@@ -683,47 +683,49 @@ else:
         with st.expander("📊 2026 혼합전략 연간 & 월간 상세 백테스트 수익률표 (실측 데이터)", expanded=True):
             st.markdown("#### 📅 연도별 성과 지표 (Annual Performance)")
             
-            # 연도별 성과 바 차트 시각화 및 텍스트 상시 마킹 레이어링 (폭 50% 축소 + 수치 상시 노출)
+            # 연도별 성과 바 차트 시각화 및 텍스트 상시 마킹 레이어링 (폭 50% 축소 + 수치 상시 노출 완벽 튜닝)
             try:
                 df_annual_raw = pd.DataFrame({
                     "연도": ["2018년", "2019년", "2020년", "2021년", "2022년", "2023년", "2024년", "2025년"],
                     "수익률 (%)": [21.0, 31.3, 75.3, 42.1, -2.3, 38.6, 58.7, 39.5]
                 })
                 
-                # 기본 바 차트 (size=16으로 50% 수준 축소)
-                bars = alt.Chart(df_annual_raw).mark_bar(size=16, cornerRadiusEnd=6).encode(
-                    x=alt.X("연도:N", title="백테스트 연도", axis=alt.Axis(labelAngle=0)),
+                # 기본 바 차트 설정: paddingInner=0.5를 주어 막대의 폭을 슬롯 대비 정확히 50%로 가볍게 축소
+                bars = alt.Chart(df_annual_raw).mark_bar(cornerRadiusEnd=6).encode(
+                    x=alt.X("연도:N", title="백테스트 연도", axis=alt.Axis(labelAngle=0),
+                            scale=alt.Scale(paddingInner=0.5, paddingOuter=0.3)),
                     y=alt.Y("수익률 (%):Q", title="연수익률 (%)"),
                     color=alt.condition(
                         alt.datum["수익률 (%)"] > 0,
-                        alt.value("#ef4444"),  # 이익 구간: 레드
-                        alt.value("#3b82f6")   # 손실 구간: 블루
+                        alt.value("#ef4444"),  # 이익 구간: 부드러운 레드
+                        alt.value("#3b82f6")   # 손실 구간: 차분한 블루
                     ),
                     tooltip=["연도", "수익률 (%)"]
                 )
                 
-                # 막대 위 수익률 상시 표시 레이어 (양수/음수에 맞춰 위치 보정)
-                text = bars.mark_text(
+                # 수치를 항상 막대 위에 선명하게 노출시키는 텍스트 레이어 (상속 문제를 차단하기 위해 차트를 직접 구성)
+                text = alt.Chart(df_annual_raw).mark_text(
                     align='center',
-                    baseline='bottom',
-                    dy=alt.condition(alt.datum["수익률 (%)"] > 0, alt.value(-6), alt.value(14)),
+                    baseline='middle',
                     fontSize=11,
-                    fontWeight='bold',
-                    color='#1e293b'
+                    fontWeight='bold'
                 ).encode(
-                    text=alt.Text("수익률 (%):Q", format=".1f")
+                    x=alt.X("연도:N"),
+                    y=alt.Y("수익률 (%):Q"),
+                    text=alt.Text("수익률 (%):Q", format=".1f"),
+                    color=alt.value("#1e293b"),  # 인지성 우수한 다크 슬레이트 톤 컬러 지정
+                    # 양수/음수에 맞춰서 숫자가 막대 바깥 영역에 오도록 상하 높낮이 수동 보정 (양수: -10px, 음수: 10px)
+                    dy=alt.condition(alt.datum["수익률 (%)"] > 0, alt.value(-10), alt.value(10))
                 )
                 
-                # 두 레이어를 결합
-                chart = alt.layer(bars, text).properties(height=250)
+                # 막대 차트와 텍스트 레이어 병합 및 불필요 테두리 제거 
+                chart = alt.layer(bars, text).properties(height=250).configure_view(strokeWidth=0)
                 st.altair_chart(chart, use_container_width=True)
             except Exception as e:
                 df_chart_alt = pd.DataFrame({
                     "수익률 (%)": [21.0, 31.3, 75.3, 42.1, -2.3, 38.6, 58.7, 39.5]
                 }, index=["2018년", "2019년", "2020년", "2021년", "2022년", "2023년", "2024년", "2025년"])
                 st.bar_chart(df_chart_alt)
-            
-            # 사용자 요청에 의해 기존 df_annual_display 누적 연수익률 테이블 삭제 완료
             
             st.markdown("#### 📊 월간 상세 성과 히트맵 (Monthly Performance Matrix)")
             st.caption("※ 각 달의 실적에 따라 강도 높은 성과는 초록색, 하방 방어 및 조정 구간은 황색/적색으로 맵핑됩니다.")
@@ -991,5 +993,437 @@ else:
 
     # ==================== TAB 2: 전략 A ====================
     with c_a:
-        # (전략 A 내용은 기존과 동일하여 생략, 전체 코드는 Canvas에 온전히 보존되어 있습니다.)
-        pass
+        st.header("🛡️ 전략 A (안정형)")
+        
+        with st.expander("📖 전략 A 상세 운용원칙 및 기대성과 (전략A_(22.6)_정확한_운용원칙_분석.pdf)"):
+            st.markdown("""
+            ### 🛡️ 전략 A의 핵심 구조 (2단계 선택 시스템)
+            시장의 핵심 선행지표인 물가연동채(TIP)를 통해 거시경제 국면을 판독하고, 대형 우량 자산 중심의 안정 투자를 지향합니다.
+            
+            * **1단계 (카나리아 국면 판독)**: TIP 현재 가격이 11개월 이동평균선($TIP_{11MA}$) 위에 존재하면 **공격 국면**, 선 아래에 위치하면 **방어 국면**으로 전환합니다.
+            * **2단계 (공격/방어 자산 매수)**:
+              - **공격 국면 (공격 자산 13개)**: 모멘텀 스코어가 가장 높은 상위 4개 종목에 각 **$25\%$씩 균등 배분**합니다.
+              - **방어 국면 (방어 자산 4개)**: 모멘텀 스코어 상위 1개 자산에 **$100\%$ 집중 투자**하되, 해당 자산의 모멘텀 스코어마저 음수($< 0$)인 극단적 상황 시 **현금($100\%$)으로 전액 대피**합니다.
+            
+            ### 📈 실제 백테스트 지표 (전략a.jpg 실측 데이터 반영)
+            """)
+            col_a1, col_a2, col_a3, col_a4, col_a5 = st.columns(5)
+            col_a1.metric("연환산 수익률 (CAGR)", "27.3%")
+            col_a2.metric("최대 낙폭 (MDD)", "-6.7%")
+            col_a3.metric("샤프 지수 (Sharpe)", "1.82")
+            col_a4.metric("소티노 지수 (Sortino)", "4.17")
+            col_a5.metric("연 변동성 (Volatility)", "13.6%")
+            
+            st.markdown("""
+            ### 📝 모멘텀 계산 공식
+            * **공격/방어 자산 모멘텀 스코어**: 1개월, 3개월, 6개월, 12개월 수익률의 단순 평균값입니다.
+              $$\\text{Momentum Score} = \\frac{R_1 + R_3 + R_6 + R_{12}}{4}$$
+            * **방어 자산 전환 필터**: 방어 자산은 1-3-6-9-12개월 단순 평균 모멘텀 스코어가 최종 $0$ 이상인 조건이어야 매입이 진행됩니다.
+            """)
+
+        st.markdown(
+            "**1단계: 카나리아 신호 판단** \n"
+            "신호 비율($TIP 현재가 / TIP_{11MA}$)이 $1.0$을 초과하면 공격 모드, 이하이면 방어 모드로 진입합니다."
+        )
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("TIP 현재가", f"${tip_current:.2f}")
+        col2.metric("TIP 11M 이평", f"${tip_ma11:.2f}")
+        col3.metric("신호 비율 (현재/이평)", f"{tip_ratio:.3f}")
+        
+        if is_attack_a:
+            st.success("🔥 **현재 모드: 공격 자산 모드** - 시장의 위험 신호가 낮습니다.")
+            
+            df_off_a = df_all[df_all["Ticker"].isin(OFFENSIVE_A)].copy()
+            df_off_a = df_off_a.sort_values(by="A_공격스코어", ascending=False)
+            
+            st.write("**공격 자산 순위 (1-3-6-12M 단순 평균 모멘텀):**")
+            st.dataframe(
+                df_off_a[["Ticker", "현재가", "1M", "3M", "6M", "12M", "A_공격스코어"]]
+                .rename(columns={"A_공격스코어": "모멘텀 스코어"}),
+                use_container_width=True, hide_index=True
+            )
+            
+            st.subheader("🎯 최종 포트폴리오 가이드 (각 25% 균등 분배)")
+            for t, _ in alloc_a.items():
+                p = data_dict.get(t, {}).get("현재가", 0.0)
+                s = data_dict.get(t, {}).get("A_공격스코어", 0.0)
+                st.info(f"**{t}** (25% 배분) - 현재가: ${p:.2f} (모멘텀: {s:.2f}%)")
+        else:
+            st.warning("🛡️ **현재 모드: 방어 자산 모드** - 하락장을 방어하는 구간입니다.")
+            
+            df_def_a = df_all[df_all["Ticker"].isin(DEFENSIVE_A)].copy()
+            df_def_a = df_def_a.sort_values(by="A_방어스코어", ascending=False)
+            
+            st.write("**방어 자산 순위 (1-3-6-9-12M 단순 평균 모멘텀):**")
+            st.dataframe(
+                df_def_a[["Ticker", "현재가", "1M", "3M", "6M", "9M", "12M", "A_방어스코어"]]
+                .rename(columns={"A_방어스코어": "모멘텀 스코어"}),
+                use_container_width=True, hide_index=True
+            )
+            
+            st.subheader("🎯 최종 포트폴리오 가이드")
+            for t, _ in alloc_a.items():
+                if t == "CASH (현금)":
+                    st.error("🚨 **현금(CASH) 보유 : 비중 100%**")
+                else:
+                    p = data_dict.get(t, {}).get("현재가", 0.0)
+                    s = data_dict.get(t, {}).get("A_방어스코어", 0.0)
+                    st.info(f"**{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
+
+
+    # ==================== TAB 3: 전략 B ====================
+    with c_b:
+        st.header("⚡ 전략 B (공격형)")
+        
+        with st.expander("📖 전략 B 상세 운용원칙 및 기대성과 (전략B_정확한_운용원칙_분석_(36.8).pdf)"):
+            st.markdown("""
+            ### ⚡ 전략 B의 핵심 구조 (레버리지 집중 투자형)
+            전략B는 채권 실질금리 모멘텀의 급격한 변화를 바탕으로 대형 3배 레버리지 자산에 초집중 투자하여 최고 수준의 수익 효율을 추구합니다.
+            
+            * **1단계 (카나리아 모멘텀 계산)**: TIP의 1-3-6-9-12개월 단순평균 모멘텀 스코어를 구합니다.
+              - 스코어 **양수(+)** $\\rightarrow$ **공격 신호** 발생
+              - 스코어 **음수(-)/영(0)** $\\rightarrow$ **방어 신호** 발생
+            * **2단계 (자산 선택)**:
+              - **공격 신호**: 3개 공격 레버리지 후보(TYD, UPRO, VNQ) 중 **가중평균 모멘텀 스코어**가 가장 높은 단 1개 자산에 **$100\%$ 몰빵 집중 투자**합니다.
+              - **방어 신호**: 3개 인버스/방어 후보(DOG, RWM, TBF) 중 **5개월 단순 수익률**이 가장 높은 자산에 **$100\%$ 투자**합니다. 단, 해당 자산의 자체 단순평균 모멘텀 스코어가 음수면 **현금($100\%$)**으로 피신합니다.
+            
+            ### 📈 실제 백테스트 지표 (전략b.jpg 실측 데이터 반영)
+            """)
+            col_perf1, col_perf2, col_perf3, col_perf4, col_perf5 = st.columns(5)
+            col_perf1.metric("연환산 수익률 (CAGR)", "36.4%")
+            col_perf2.metric("최대 낙폭 (MDD)", "-27.8%")
+            col_perf3.metric("샤프 지수 (Sharpe)", "1.35")
+            col_perf4.metric("소티노 지수 (Sortino)", "2.44")
+            col_perf5.metric("연 변동성 (Volatility)", "25.9%")
+            
+            st.markdown("""
+            ### 📝 모멘텀 가중평균 공식
+            * 공격 자산 결정 시 최근 트렌드에 극도로 민감하도록 **최근 수익률에 최대 가중치**를 부여하여 계산합니다.
+              $$\\text{Weighted Momentum} = \\frac{12 \\cdot R_1 + 4 \\cdot R_3 + 2 \\cdot R_6 + 1 \\cdot R_{12}}{19}$$
+            """)
+
+        st.markdown(
+            "**1단계: 카나리아 신호 판단** \n"
+            "TIP의 단순 모멘텀 스코어가 양수($> 0$)이면 공격, 음수($\le 0$)이면 방어 모드로 진입합니다."
+        )
+        
+        col1_b, col2_b = st.columns(2)
+        col1_b.metric("TIP 현재가", f"${tip_current:.2f}")
+        col2_b.metric("TIP 단순 모멘텀", f"{tip_score_b:.2f}%")
+        
+        if is_attack_b:
+            st.success("⚔️ **현재 모드: 공격 자산 모드** - 레버리지 투자를 적극 실행합니다.")
+            
+            df_off_b = df_all[df_all["Ticker"].isin(OFFENSIVE_B)].copy()
+            df_off_b = df_off_b.sort_values(by="B_공격스코어", ascending=False)
+            
+            st.write("**공격 자산 순위 (1-3-6-12M 가중 평균 모멘텀):**")
+            st.caption("가중치 공식: $\\frac{12 \\cdot R_1 + 4 \\cdot R_3 + 2 \\cdot R_6 + R_{12}}{19}$")
+            st.dataframe(
+                df_off_b[["Ticker", "현재가", "1M", "3M", "6M", "12M", "B_공격스코어"]]
+                .rename(columns={"B_공격스코어": "가중 모멘텀 스코어"}),
+                use_container_width=True, hide_index=True
+            )
+            
+            st.subheader("🎯 최종 포트폴리오 가이드 (100% 집중 투자)")
+            for t, _ in alloc_b.items():
+                p = data_dict.get(t, {}).get("현재가", 0.0)
+                s = data_dict.get(t, {}).get("B_공격스코어", 0.0)
+                st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 가중 모멘텀: {s:.2f}%)")
+        else:
+            st.warning("🛡️ **현재 모드: 방어 자산 모드** - 인버스 자산을 활용하여 하락장에 방어 베팅합니다.")
+            
+            df_def_b = df_all[df_all["Ticker"].isin(DEFENSIVE_B)].copy()
+            df_def_b = df_def_b.sort_values(by="5M", ascending=False)
+            
+            st.write("**방어 자산 순위 (5개월 단순 수익률 기준):**")
+            st.dataframe(
+                df_def_b[["Ticker", "현재가", "5M", "B_단순모멘텀"]]
+                .rename(columns={"5M": "5개월 수익률", "B_단순모멘텀": "자체 단순모멘텀"}),
+                use_container_width=True, hide_index=True
+            )
+            
+            st.subheader("🎯 최종 포트폴리오 가이드")
+            for t, _ in alloc_b.items():
+                if t == "CASH (현금)":
+                    st.error("🚨 **현금(CASH) 보유 : 비중 100%**")
+                else:
+                    p = data_dict.get(t, {}).get("현재가", 0.0)
+                    s = data_dict.get(t, {}).get("B_단순모멘텀", 0.0)
+                    st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 자체 모멘텀: {s:.2f}%)")
+
+
+    # ==================== TAB 4: 전략 C ====================
+    with c_c:
+        st.header("🔄 전략 C (섹터로테이션)")
+        
+        with st.expander("📖 전략 C 상세 운용원칙 및 기대성과 (섹터로테이션_전략_운용원칙_분석.pdf)"):
+            st.markdown("""
+            ### 🔄 섹터 로테이션 전략 핵심 운용원칙
+            S&P 500 기업들의 전체 가치 척도인 **실시간 배당수익률(Dividend Yield)**을 기반으로 주식 저평가/과열 국면을 완벽히 모니터링하여 가치 전환적 투자를 실행합니다.
+            
+            * **1단계 (배당수익률 필터링)**: 
+              - S&P 500 배당수익률 **$1.33\%$ 초과** $\\rightarrow$ **공격 신호** (시장이 저평가되어 주식의 매력도가 매우 높은 국면)
+              - S&P 500 배당수익률 **$1.33\%$ 이하** $\\rightarrow$ **방어 신호** (시장이 과열되어 배당 가치가 바닥으로 처진 리스크 관리 국면)
+            * **2단계 (자산 매수 가이드)**:
+              - **공격 신호 발생 시**: 4대 주도 인터넷/배터리/반도체/에너지 섹터(FDN, LIT, SMH, XLE) 중 **1-3-6-12M 단순 평균 모멘텀 스코어**가 가장 우수한 단 1개 섹터 자산에 **$100\%$ 집중 투자**합니다.
+              - **방어 신호 발생 시**: 원자재 방어 자산군(GLD, PDBC, OILK) 중 단순평균 모멘텀 스코어가 가장 높은 1개 자산에 **$100\%$ 대피**하되, 모멘텀이 모두 마이너스이면 안전하게 **현금($100\%$)**을 확보합니다.
+            
+            ### 📈 실제 백테스트 지표 (전략c.jpg 실측 데이터 반영)
+            """)
+            col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns(5)
+            col_c1.metric("연환산 수익률 (CAGR)", "46.7%")
+            col_c2.metric("최대 낙폭 (MDD)", "-19.9%")
+            col_c3.metric("샤프 지수 (Sharpe)", "1.59")
+            col_c4.metric("소티노 지수 (Sortino)", "2.63")
+            col_c5.metric("연 변동성 (Volatility)", "27.8%")
+
+            st.markdown("""
+            ### 🎯 전략적 장점
+            기존의 전통적인 채권 지표 기반 카나리아에서 탈피해, 자산가치 자체의 수익률(배당률)을 계측함으로써 채권-주가 동반 하락장의 충격을 지혜롭게 비껴가며, 자산군 로테이션 성능을 원활히 지원합니다.
+            """)
+
+        st.markdown(
+            "**1단계: 카나리아 신호 판단 (S&P 500 배당수익률)** \n"
+            "배당수익률이 **1.33%** 초과 시 주식 저평가로 판단하여 공격 모드, 이하일 경우 시장 과열로 판단하여 방어 모드로 진입합니다."
+        )
+        
+        st.markdown(f"""
+            <div class="control-panel">
+                <div class="control-header">📊 S&P 500 (SPY) 실시간 배당수익률 모니터링</div>
+                <div class="control-subheader">
+                    야후 파이낸스(yfinance) API로부터 소수 및 백분율 단위를 실시간으로 정합 보정하여 산출한 데이터입니다.<br/>
+                    • <b>실시간 배당수익률: {realtime_dy:.2f}%</b><br/>
+                    • <b>모드 분류 기준선: 1.33%</b> (초과 시 공격 모드 / 이하 시 방어 모드)
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        if is_attack_c:
+            st.success(f"🔥 **현재 모드: 공격 자산 모드** (실시간 배당수익률 {realtime_dy:.2f}% > 1.33%) - 시장 저평가 국면으로 주식을 매수합니다.")
+            
+            df_off_c = df_all[df_all["Ticker"].isin(OFFENSIVE_C)].copy()
+            df_off_c = df_off_c.sort_values(by="A_공격스코어", ascending=False)
+            
+            st.write("**주도 섹터 후보 순위 (1-3-6-12M 단순 평균 모멘텀):**")
+            st.dataframe(
+                df_off_c[["Ticker", "현재가", "1M", "3M", "6M", "12M", "A_공격스코어"]]
+                .rename(columns={"A_공격스코어": "모멘텀 스코어"}),
+                use_container_width=True, hide_index=True
+            )
+            
+            st.subheader("🎯 최종 포트폴리오 가이드 (100% 단일 섹터 투자)")
+            for t, _ in alloc_c.items():
+                p = data_dict.get(t, {}).get("현재가", 0.0)
+                s = data_dict.get(t, {}).get("A_공격스코어", 0.0)
+                st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
+        else:
+            st.warning(f"🛡️ **현재 모드: 방어 자산 모드** (실시간 배당수익률 {realtime_dy:.2f}% <= 1.33%) - 시장 과열 국면으로 원자재 자산으로 대피합니다.")
+            
+            df_def_c = df_all[df_all["Ticker"].isin(DEFENSIVE_C)].copy()
+            df_def_c = df_def_c.sort_values(by="A_방어스코어", ascending=False)
+            
+            st.write("**원자재 방어 자산 순위 (1-3-6-9-12M 단순 평균 모멘텀):**")
+            st.dataframe(
+                df_def_c[["Ticker", "현재가", "1M", "3M", "6M", "9M", "12M", "A_방어스코어"]]
+                .rename(columns={"A_방어스코어": "모멘텀 스코어"}),
+                use_container_width=True, hide_index=True
+            )
+            
+            st.subheader("🎯 최종 포트폴리오 가이드")
+            for t, _ in alloc_c.items():
+                if t == "CASH (현금)":
+                    st.error("🚨 **현금(CASH) 보유 : 비중 100%**")
+                else:
+                    p = data_dict.get(t, {}).get("현재가", 0.0)
+                    s = data_dict.get(t, {}).get("A_방어스코어", 0.0)
+                    st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
+
+
+    # ==================== TAB 5: 미국 ETF 랭킹 ====================
+    with c_rank:
+        st.header("🇺🇸 실시간 미국 ETF 랭킹")
+        st.markdown(
+            "대시보드에 등록된 주요 지수, 주도 섹터, 레버리지 및 배당형 ETF들의 실시간 모멘텀과 "
+            "수익률을 역동적으로 추적하여 정렬하는 인텔리전트 멀티-팩터 랭킹 시스템입니다."
+        )
+        
+        sort_by = st.radio(
+            "🏆 정렬 기준 선택",
+            options=["종합 모멘텀 스코어", "1개월 수익률", "3개월 수익률", "6개월 수익률", "12개월 수익률"],
+            horizontal=True
+        )
+        
+        rank_data = []
+        for ticker, metrics in data_dict.items():
+            if ticker == "TIP":
+                continue  
+                
+            rank_data.append({
+                "티커 (Ticker)": ticker,
+                "현재가 ($)": f"${metrics['현재가']:.2f}",
+                "1개월 수익률 (%)": metrics["1M"],
+                "3개월 수익률 (%)": metrics["3M"],
+                "6개월 수익률 (%)": metrics["6M"],
+                "12개월 수익률 (%)": metrics["12M"],
+                "종합 모멘텀 스코어": metrics["A_공격스코어"]
+            })
+            
+        df_ranking = pd.DataFrame(rank_data)
+        
+        sort_column_map = {
+            "종합 모멘텀 스코어": "종합 모멘텀 스코어",
+            "1개월 수익률": "1개월 수익률 (%)",
+            "3개월 수익률": "3개월 수익률 (%)",
+            "6개월 수익률": "6개월 수익률 (%)",
+            "12개월 수익률": "12개월 수익률 (%)"
+        }
+        
+        selected_sort_col = sort_column_map[sort_by]
+        df_ranking = df_ranking.sort_values(by=selected_sort_col, ascending=False).reset_index(drop=True)
+        df_ranking.index += 1  
+        
+        st.markdown(f"### 📊 Top 5 Performers ({sort_by} 기준)")
+        df_top5 = df_ranking.head(5).copy()
+        
+        try:
+            top_chart = alt.Chart(df_top5).mark_bar(cornerRadiusEnd=6).encode(
+                x=alt.X(f"{selected_sort_col}:Q", title=sort_by),
+                y=alt.Y("티커 (Ticker):N", sort='-x', title="ETF 티커"),
+                color=alt.Color("티커 (Ticker):N", scale=alt.Scale(scheme='tableau10'), legend=None),
+                tooltip=["티커 (Ticker)", "현재가 ($)", selected_sort_col]
+            ).properties(height=200)
+            st.altair_chart(top_chart, use_container_width=True)
+        except Exception:
+            st.bar_chart(df_top5.set_index("티커 (Ticker)")[selected_sort_col])
+            
+        st.markdown("### 🏆 실시간 모멘텀 순위표")
+        st.dataframe(df_ranking, use_container_width=True)
+
+
+    # ==================== TAB 6: 자산 계산기 ====================
+    with c_calc:
+        st.header("🧮 복리의 마법 & 미래 계산기")
+        st.markdown(
+            "자산배분 백테스트의 실제 연평균 수익률(CAGR)을 기반으로, 매월 적립식 저축 및 정기 생활비 지출이 유발하는 "
+            "미래 자산의 실제 성장 경로를 정밀하게 예측합니다. **세율 적용**, **생활비 지출 설정**, 및 **물가상승률 할인**까지 연산하는 실전형 자산 시뮬레이터입니다."
+        )
+
+        if "cagr_input" not in st.session_state:
+            st.session_state.cagr_input = 38.7
+
+        st.markdown("##### ⚡ 자산배분 전략 실측 CAGR 퀵 프리셋")
+        col_pre1, col_pre2, col_pre3, col_pre4 = st.columns(4)
+        if col_pre1.button("🏆 2026 혼합 (38.7%)"):
+            st.session_state.cagr_input = 38.7
+            st.rerun()
+        if col_pre2.button("🛡️ 전략 A (27.3%)"):
+            st.session_state.cagr_input = 27.3
+            st.rerun()
+        if col_pre3.button("⚡ 전략 B (36.4%)"):
+            st.session_state.cagr_input = 36.4
+            st.rerun()
+        if col_pre4.button("🔄 전략 C (46.7%)"):
+            st.session_state.cagr_input = 46.7
+            st.rerun()
+
+        st.markdown("---")
+        col_inp1, col_inp2 = st.columns(2)
+        with col_inp1:
+            calc_init = st.number_input("초기 투자금 (만원 ₩)", min_value=0, value=2000, step=100)
+            calc_monthly = st.number_input("매월 저축/적립금 (만원 ₩)", min_value=0, value=100, step=10)
+            calc_expense = st.number_input("매월 지출/생활비 (만원 ₩)", min_value=0, value=0, step=10, help="투자수익에서 정기 지출하는 생활비가 있다면 마이너스로 처리됩니다.")
+            calc_years = st.slider("시뮬레이션 투자 기간 (년)", min_value=1, max_value=40, value=15)
+        with col_inp2:
+            calc_cagr = st.number_input("연 목표 수익률 CAGR (%)", min_value=0.0, max_value=100.0, key="cagr_input", step=0.1)
+            calc_inflation = st.number_input("연 예상 물가상승률 (%)", min_value=0.0, max_value=20.0, value=3.0, step=0.1)
+            calc_expense_start = st.number_input("지출 시작 시점 (년차)", min_value=1, max_value=max(1, calc_years), value=1, step=1, help="생활비 지출을 몇 년차부터 적용할지 연차를 지정합니다.")
+            calc_tax_opt = st.selectbox("세율 설정", ["일반과세 (15.4%)", "미국주식양도세 (22.0%)", "비과세 계좌 (0.0% / ISA 및 연금저축)", "사용자 정의"])
+            
+            if calc_tax_opt == "일반과세 (15.4%)":
+                tax_rate = 15.4
+            elif calc_tax_opt == "미국주식양도세 (22.0%)":
+                tax_rate = 22.0
+            elif calc_tax_opt == "비과세 계좌 (0.0% / ISA 및 연금저축)":
+                tax_rate = 0.0
+            else:
+                tax_rate = st.number_input("세율 직접 입력 (%)", min_value=0.0, max_value=50.0, value=15.4, step=0.1)
+
+        records = []
+        curr_nominal = calc_init * 10000
+        curr_contribution = calc_init * 10000
+        monthly_contrib = calc_monthly * 10000
+        base_expense = calc_expense * 10000
+        r_monthly = (1 + calc_cagr / 100) ** (1/12) - 1 if calc_cagr > 0 else 0.0
+
+        for y in range(1, calc_years + 1):
+            current_year_monthly_expense = base_expense * ((1 + calc_inflation / 100) ** (y - 1)) if y >= calc_expense_start else 0.0
+            
+            for m in range(12):
+                net_flow = monthly_contrib - current_year_monthly_expense
+                curr_contribution += net_flow
+                curr_nominal = (curr_nominal + net_flow) * (1 + r_monthly)
+                
+                if curr_nominal < 0:
+                    curr_nominal = 0.0
+            
+            effective_contribution = max(0.0, curr_contribution)
+            profit = curr_nominal - effective_contribution
+            tax_due = profit * (tax_rate / 100) if profit > 0 else 0.0
+            curr_after_tax = curr_nominal - tax_due
+            
+            real_value = curr_after_tax / ((1 + calc_inflation / 100) ** y)
+            
+            records.append({
+                "년차": f"{y}년차",
+                "누적 납입원금": round(curr_contribution),
+                "세전 일반복리": round(curr_nominal),
+                "세후 수령예정액": round(curr_after_tax),
+                "세후 실질가치 (물가반영)": round(real_value)
+            })
+
+        df_calc = pd.DataFrame(records)
+
+        def format_krw(val):
+            sign = "-" if val < 0 else ""
+            val = abs(val)
+            if val == 0:
+                return "0원"
+            if val >= 100000000:
+                eok = int(val // 100000000)
+                man = int((val % 100000000) // 10000)
+                if man > 0:
+                    return f"{sign}{eok}억 {man:,}만원"
+                return f"{sign}{eok}억원"
+            else:
+                man = int(val // 10000)
+                return f"{sign}{man:,}만원"
+
+        last_rec = records[-1]
+        st.markdown("### 🏆 시뮬레이션 최종 기대 성과 요약")
+        sum_col1, sum_col2, sum_col3 = st.columns(3)
+        sum_col1.metric("총 순 원금(저축-지출)", format_krw(last_rec["누적 납입원금"]))
+        sum_col2.metric("세후 최종 자산", format_krw(last_rec["세후 수령예정액"]))
+        sum_col3.metric("실질구매력 가치", format_krw(last_rec["세후 실질가치 (물가반영)"]))
+
+        st.markdown("### 📈 미래 자산 성장 시뮬레이션")
+        df_melt = df_calc.melt(id_vars="년차", value_vars=["누적 납입원금", "세전 일반복리", "세후 수령예정액", "세후 실질가치 (물가반영)"], var_name="구분", value_name="자산액")
+        
+        try:
+            line_chart = alt.Chart(df_melt).mark_line(point=True, size=2.5).encode(
+                x=alt.X("년차:N", sort=None, title="년차"),
+                y=alt.Y("자산액:Q", title="평가액 (₩)"),
+                color=alt.Color("구분:N", scale=alt.Scale(range=["#94a3b8", "#ef4444", "#10b981", "#3b82f6"])),
+                tooltip=[alt.Tooltip("년차"), alt.Tooltip("구분"), alt.Tooltip("자산액", format=",.0f")]
+            ).properties(height=350)
+            st.altair_chart(line_chart, use_container_width=True)
+        except Exception:
+            st.line_chart(df_calc.set_index("년차"))
+
+        st.markdown("### 📊 연도별 세부 자산 성장 상세표")
+        df_display = df_calc.copy()
+        for col in ["누적 납입원금", "세전 일반복리", "세후 수령예정액", "세후 실질가치 (물가반영)"]:
+            df_display[col] = df_display[col].apply(format_krw)
+        
+        st.dataframe(df_display, use_container_width=True)
