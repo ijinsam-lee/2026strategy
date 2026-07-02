@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import datetime
 
-# 모바일 화면에 최적화된 레이아웃 설정
+# STREAMING_CHUNK: 모바일 화면 레이아웃 및 CSS 주입...
 st.set_page_config(page_title="동적 자산배분 대시보드", layout="centered", initial_sidebar_state="collapsed")
 
 # 프리미엄 그레이/슬레이트 톤 스타일 및 탭 선택바 강조 스타일 주입
@@ -139,6 +139,7 @@ MACRO_TICKERS = {
     "코스피 200": "^KS200"
 }
 
+# STREAMING_CHUNK: 매크로 시황판 데이터 수집...
 @st.cache_data(ttl=300) # 시황 데이터는 5분 단위 캐싱
 def get_macro_market_pulse():
     macro_data = []
@@ -256,6 +257,7 @@ def get_sp500_dividend_yield():
         pass
     return 1.32 # 기본값 백업
 
+# STREAMING_CHUNK: 역사 데이터 파싱 및 가공 함수 정의...
 # 과거 캐시 강제 무효화를 위한 고유 버전 함수 유지
 @st.cache_data(ttl=3600) 
 def get_all_financial_data_v2(tickers):
@@ -536,6 +538,10 @@ else:
     # ------------------ 데이터 안전 조회를 위한 사전 래핑 (IndexError 완벽 방지) ------------------
     data_dict = df_all.set_index("Ticker").to_dict(orient="index")
     
+    # [수정] ⚠️ NameError 완전 방지: 백테스트 데이터 수집 코드를 탭이 렌더링되기 전에 즉각 호출하고 저장합니다.
+    with st.spinner("지난 12개월(최근 1년) 월말 포트폴리오 데이터를 로딩 및 역동 연산 중..."):
+        hist_prices, spy_divs_hist = get_historical_simulation_data(ALL_TICKERS)
+    
     # TIP 데이터 추출
     tip_data = data_dict.get("TIP", {})
     tip_closes = tip_data.get("raw_closes", [])
@@ -683,6 +689,7 @@ else:
 
 
     # ==================== TAB 1: 2026년 혼합 전략 (c_2026 컨테이너에 매핑) ====================
+    # STREAMING_CHUNK: 2026 혼합 전략 탭 내용 작성...
     with c_2026:
         st.header("🏆 2026년 혼합 전략")
         st.markdown(
@@ -703,11 +710,11 @@ else:
             ### 📈 실제 백테스트 지표 (실측 데이터 반영)
             """)
             col_perf1, col_perf2, col_perf3, col_perf4, col_perf5 = st.columns(5)
-            col_perf1.metric("연환산 수익률 (CAGR)", "38.7%")
-            col_perf2.metric("최대 낙폭 (MDD)", "-13.2%")
-            col_perf3.metric("샤프 지수 (Sharpe)", "2.03")
-            col_perf4.metric("소티노 지수 (Sortino)", "3.34")
-            col_perf5.metric("연 변동성 (Volatility)", "17.9%")
+            col_perf1.metric("연환산 수익률 (CAGR)", "44.2%")
+            col_perf2.metric("최대 낙폭 (MDD)", "-9.1%")
+            col_perf3.metric("샤프 지수 (Sharpe)", "2.26")
+            col_perf4.metric("소티노 지수 (Sortino)", "4.69")
+            col_perf5.metric("연 변동성 (Volatility)", "18.4%")
             
             st.markdown("""
             ### 🔄 실전 운용 프로세스
@@ -720,7 +727,7 @@ else:
         with st.expander("📊 상세 역사 백테스트 리포트 [2026 혼합전략 (44.2% / -9.1%)]", expanded=True):
             st.markdown("""
             **PDF 보고서 원본 기반 최신 분석 데이터 (2019-12-01 ~ 2026-07-01)**  
-            본 리포트는 3가지 동적 자산배분 전략(전략A 안정형, 전략B 레버리지형, 전략C 섹터로테이션)을 동일 비중(각 33.33%)으로 혼합하여 극대화된 안정성과 압도적인 복리 성장을 증명한 2026년 혼합전략의 상세 역사적 검증 결과입니다.
+            본 리포트는 3가지 동적 자산배분 전략(전략A 안정형, 전략B 레버리지형, 전략C 섹터로테이션)을 동일 비중(각 33.33%)으로 혼합하여 극대화된 안정성과 압도적인 복리 성장을 증명한 2026년 하반기 혼합전략의 상세 역사적 검증 결과입니다.
             """)
             
             pdf_mix_tab1, pdf_mix_tab2, pdf_mix_tab3 = st.tabs(["📈 핵심 성과 지표", "📉 MDD & 드로우다운 분석", "💼 전략별 성과 분석"])
@@ -929,11 +936,7 @@ else:
             
             st.dataframe(pd.DataFrame(calc_data), use_container_width=True, hide_index=True)
 
-        # ==================== 대시보드 공통 하단에서 이동: 지난 12개월(최근 1년)간의 월말 기준 리밸런싱 역사 백테스트 ====================
-        # (2026 혼합전략 탭에서만 보이게 하기 위해 c_2026 컨테이너 최하단 영역으로 이전 완료)
-        with st.spinner("지난 12개월(최근 1년) 월말 포트폴리오 데이터를 로딩 및 역동 연산 중..."):
-            hist_prices, spy_divs_hist = get_historical_simulation_data(ALL_TICKERS)
-            
+        # 📅 월말 기준 리밸런싱 포트폴리오 역사 (최근 1년) 렌더링
         if hist_prices and "SPY" in hist_prices:
             st.markdown("---")
             st.markdown("### 📅 월말 기준 리밸런싱 포트폴리오 역사 (최근 1년)")
@@ -991,6 +994,7 @@ else:
 
 
     # ==================== TAB 2: 전략 A (c_a 컨테이너에 매핑) ====================
+    # STREAMING_CHUNK: 전략 A 탭 내용 작성...
     with c_a:
         st.header("🛡️ 전략 A (안정형)")
         
@@ -1021,7 +1025,7 @@ else:
             * **방어 자산 전환 필터**: 방어 자산은 1-3-6-9-12개월 단순 평균 모멘텀 스코어가 최종 $0$ 이상인 조건이어야 매입이 진행됩니다.
             """)
 
-        # ------------------ 최신 PDF 보고서 데이터 완벽 시각화 연동 인터랙티브 리포트 (EEM & QTUM 강화본) ------------------
+        # 최신 PDF 보고서 데이터 완벽 시각화 연동 인터랙티브 리포트 (EEM & QTUM 강화본)
         with st.expander("📊 상세 역사 백테스트 리포트 [전략A+EEM+QTUM (30.2% / -6.7%)]", expanded=True):
             st.markdown("""
             **PDF 보고서 원본 기반 최신 분석 데이터 (2019-11-01 ~ 2026-07-01)**  
@@ -1104,7 +1108,6 @@ else:
             "**1단계: 카나리아 신호 판단** \n"
             "신호 비율($TIP 현재가 / TIP_{11MA}$)이 $1.0$을 초과하면 공격 모드, 이하이면 방어 모드로 진입합니다."
         )
-        
         col1, col2, col3 = st.columns(3)
         col1.metric("TIP 현재가", f"${tip_current:.2f}")
         col2.metric("TIP 11M 이평", f"${tip_ma11:.2f}")
@@ -1112,7 +1115,6 @@ else:
         
         if is_attack_a:
             st.success("🔥 **현재 모드: 공격 자산 모드** - 시장의 위험 신호가 낮습니다.")
-            
             df_off_a = df_all[df_all["Ticker"].isin(OFFENSIVE_A)].copy()
             df_off_a = df_off_a.sort_values(by="A_공격스코어", ascending=False)
             
@@ -1130,7 +1132,6 @@ else:
                 st.info(f"**{t}** (25% 배분) - 현재가: ${p:.2f} (모멘텀: {s:.2f}%)")
         else:
             st.warning("🛡️ **현재 모드: 방어 자산 모드** - 하락장을 방어하는 구간입니다.")
-            
             df_def_a = df_all[df_all["Ticker"].isin(DEFENSIVE_A)].copy()
             df_def_a = df_def_a.sort_values(by="A_방어스코어", ascending=False)
             
@@ -1152,11 +1153,12 @@ else:
 
 
     # ==================== TAB 3: 전략 B (c_b 컨테이너에 매핑) ====================
+    # STREAMING_CHUNK: 전략 B 탭 내용 작성...
     with c_b:
         st.header("⚡ 전략 B (공격형)")
         
         # 전략B 가이드라인 추가
-        with st.expander("📖 전략 B 상세 운용원칙 및 기대성과 (전략B_정확한_운용원칙_분석_(36.8))"):
+        with st.expander("📖 전략 B 상세 운용원칙 및 기대성과 (전략B_정확한_운용원칙_분석)"):
             st.markdown("""
             ### ⚡ 전략 B의 핵심 구조 (레버리지 집중 투자형)
             전략B는 채권 실질금리 모멘텀의 급격한 변화를 바탕으로 대형 3배 레버리지 자산에 초집중 투자하여 최고 수준의 수익 효율을 추구합니다.
@@ -1183,7 +1185,7 @@ else:
             $$\\text{Weighted Momentum} = \\frac{12 \\cdot R_1 + 4 \\cdot R_3 + 2 \\cdot R_6 + 1 \\cdot R_{12}}{19}$$
             """)
 
-        # ------------------ [NEW] 최신 PDF 보고서 데이터 완벽 시각화 연동 인터랙티브 리포트 (전략 B 레버리지형) ------------------
+        # 최신 PDF 보고서 데이터 완벽 시각화 연동 인터랙티브 리포트 (전략 B 레버리지형)
         with st.expander("📊 상세 역사 백테스트 리포트 [전략B (35.7% / -27.8%)]", expanded=True):
             st.markdown("""
             **PDF 보고서 원본 기반 최신 분석 데이터 (2010-10-01 ~ 2026-07-01)**  
@@ -1262,14 +1264,12 @@ else:
             "**1단계: 카나리아 신호 판단** \n"
             "TIP의 단순 모멘텀 스코어가 양수($> 0$)이면 공격, 음수($\le 0$)이면 방어 모드로 진입합니다."
         )
-        
         col1_b, col2_b = st.columns(2)
         col1_b.metric("TIP 현재가", f"${tip_current:.2f}")
         col2_b.metric("TIP 단순 모멘텀", f"{tip_score_b:.2f}%")
         
         if is_attack_b:
             st.success("⚔️ **현재 모드: 공격 자산 모드** - 레버리지 투자를 적극 실행합니다.")
-            
             df_off_b = df_all[df_all["Ticker"].isin(OFFENSIVE_B)].copy()
             df_off_b = df_off_b.sort_values(by="B_공격스코어", ascending=False)
             
@@ -1285,10 +1285,9 @@ else:
             for t, _ in alloc_b.items():
                 p = data_dict.get(t, {}).get("현재가", 0.0)
                 s = data_dict.get(t, {}).get("B_공격스코어", 0.0)
-                st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 가중 모텀: {s:.2f}%)")
+                st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 가중 모멘텀: {s:.2f}%)")
         else:
             st.warning("🛡️ **현재 모드: 방어 자산 모드** - 인버스 자산을 활용하여 하락장에 방어 베팅합니다.")
-            
             df_def_b = df_all[df_all["Ticker"].isin(DEFENSIVE_B)].copy()
             df_def_b = df_def_b.sort_values(by="5M", ascending=False)
             
@@ -1310,6 +1309,7 @@ else:
 
 
     # ==================== TAB 4: 전략 C (c_c 컨테이너에 매핑) ====================
+    # STREAMING_CHUNK: 전략 C 탭 내용 작성...
     with c_c:
         st.header("🔄 전략 C (섹터로테이션)")
         
@@ -1329,16 +1329,92 @@ else:
             ### 📈 실제 백테스트 지표 (전략c.jpg 실측 데이터 반영)
             """)
             col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns(5)
-            col_c1.metric("연환산 수익률 (CAGR)", "46.7%")
+            col_c1.metric("연환산 수익률 (CAGR)", "43.2%")
             col_c2.metric("최대 낙폭 (MDD)", "-19.9%")
-            col_c3.metric("샤프 지수 (Sharpe)", "1.59")
-            col_c4.metric("소티노 지수 (Sortino)", "2.63")
-            col_c5.metric("연 변동성 (Volatility)", "27.8%")
+            col_c3.metric("샤프 지수 (Sharpe)", "1.45")
+            col_c4.metric("소티노 지수 (Sortino)", "2.39")
+            col_c5.metric("연 변동성 (Volatility)", "28.1%")
 
             st.markdown("""
             ### 🎯 전략적 장점
             기존의 전통적인 채권 지표 기반 카나리아에서 탈피해, 자산가치 자체의 수익률(배당률)을 계측함으로써 채권-주가 동반 하락장의 충격을 지혜롭게 비껴가며, 자산군 로테이션 성능을 원활히 지원합니다.
             """)
+
+        # 최신 PDF 보고서 데이터 완벽 시각화 연동 인터랙티브 리포트 (전략 C 섹터로테이션형)
+        with st.expander("📊 상세 역사 백테스트 리포트 [전략C (43.2% / -19.9%)]", expanded=True):
+            st.markdown("""
+            **PDF 보고서 원본 기반 최신 분석 데이터 (2017-11-01 ~ 2026-07-01)**  
+            본 리포트는 S&P 500 실시간 배당률 필터링을 카나리아 지표로 활성화하고 4대 우량 섹터(SMH, LIT, FDN, XLE)와 3대 방어 원자재 자산(GLD, PDBC, OILK)을 동적 스위칭하며 운용한 최종 백테스트 결과입니다.
+            """)
+            
+            # 세부 서브 탭 분할
+            pdf_c_tab1, pdf_c_tab2, pdf_c_tab3 = st.tabs(["📈 핵심 성과 지표", "📉 MDD & 드로우다운 분석", "💼 자산군 기여도"])
+            
+            with pdf_c_tab1:
+                st.markdown("#### 🏆 성과 비교 요약 (vs QQQ 벤치마크)")
+                
+                mc_col1, mc_col2, mc_col3 = st.columns(3)
+                mc_col1.metric("포트폴리오 누적 수익률", "2,287.1%", "QQQ 405.2%")
+                mc_col2.metric("연환산 수익률 (CAGR)", "43.2%", "QQQ 20.1%")
+                mc_col3.metric("최대 낙폭 (MDD)", "-19.9%", "QQQ -32.6%", delta_color="inverse")
+                
+                mc_col4, mc_col5, mc_col6 = st.columns(3)
+                mc_col4.metric("샤프 지수 (Sharpe)", "1.45", "QQQ 0.89")
+                mc_col5.metric("소티노 지수 (Sortino)", "2.39", "QQQ 1.46")
+                mc_col6.metric("수익 월 비중 (Win Rate)", "66.7%", "70 / 105 개월")
+                
+                st.markdown("#### 📅 월별 수익률 성과 매트릭스 (%)")
+                monthly_perf_data_c = {
+                    "연도": ["2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"],
+                    "1월": ["-", "-3.1", "13.4", "-2.7", "6.0", "13.9", "2.8", "6.3", "6.8", "12.3"],
+                    "2월": ["-", "0.8", "3.5", "-4.1", "-7.3", "6.7", "-6.9", "14.0", "1.8", "8.7"],
+                    "3월": ["-", "-2.1", "1.4", "-11.2", "-3.8", "9.3", "-0.0", "6.2", "9.4", "-11.1"],
+                    "4월": ["-", "2.8", "6.4", "14.2", "8.8", "-1.7", "-2.0", "-4.8", "5.4", "14.1"],
+                    "5월": ["-", "8.5", "-16.2", "5.5", "4.5", "16.0", "16.7", "12.3", "3.9", "-3.8"],
+                    "6월": ["-", "2.4", "5.5", "8.3", "9.1", "-17.1", "5.5", "8.4", "-2.4", "-12.5"],
+                    "7월": ["-", "-1.6", "2.8", "12.5", "14.9", "9.7", "5.5", "4.9", "-0.6", "-1.6"],
+                    "8월": ["-", "7.6", "-2.3", "9.5", "-3.1", "2.7", "-2.7", "2.1", "5.0", "-"],
+                    "9월": ["-", "-2.8", "4.1", "1.9", "8.3", "-9.6", "-7.2", "5.1", "11.8", "-"],
+                    "10월": ["-", "-11.0", "7.0", "7.7", "12.3", "25.0", "-4.2", "4.3", "3.6", "-"],
+                    "11월": ["-0.3", "0.2", "4.3", "21.1", "-18.1", "1.3", "15.5", "-3.1", "5.4", "-"],
+                    "12월": ["0.3", "-7.6", "8.0", "18.7", "13.1", "-3.0", "9.6", "-1.4", "2.2", "-"],
+                    "연간 성과": ["0.0%", "-7.5%", "33.4%", "109.8%", "56.8%", "46.9%", "41.1%", "67.2%", "65.3%", "2.6% (YTD)"]
+                }
+                df_monthly_perf_c = pd.DataFrame(monthly_perf_data_c)
+                st.dataframe(df_monthly_perf_c, use_container_width=True, hide_index=True)
+                
+            with pdf_c_tab2:
+                st.markdown("#### 🚨 역사적 하락장 스트레스 기간 성과")
+                st.info("🦠 **코로나 팬데믹 폭락기 (2020/01 ~ 2020/03)**: S&P 500 전체 시장이 패닉에 빠진 3개월 동안 전략 C는 유기적인 원자재 및 방어 필터 적용으로 낙폭을 **-14.9%**로 성공적으로 지연 방어해 냈습니다.")
+                
+                st.markdown("#### 📉 드로우다운(Drawdown) 손실 하락폭 순위 Top 10")
+                drawdown_data_c = [
+                    {"순위": 1, "하락 시작": "2018-09", "최대 하락": "2018-12", "회복 완료": "2019-04", "회복 기간": "4개월", "손실 기간": "8개월", "하락률 (MDD)": "-19.9%"},
+                    {"순위": 2, "하락 시작": "2021-11", "최대 하락": "2021-11", "회복 완료": "2022-01", "회복 기간": "3개월", "손실 기간": "3개월", "하락률 (MDD)": "-18.1%"},
+                    {"순위": 3, "하락 시작": "2026-05", "최대 하락": "2026-07", "회복 완료": "진행 중", "회복 기간": "진행 중", "손실 기간": "진행 중", "하락률 (MDD)": "-17.2%"},
+                    {"순위": 4, "하락 시작": "2020-01", "최대 하락": "2020-03", "회복 완료": "2020-06", "회복 기간": "4개월", "손실 기간": "6개월", "하락률 (MDD)": "-17.2%"},
+                    {"순위": 5, "하락 시작": "2022-06", "최대 하락": "2022-06", "회복 완료": "2022-10", "회복 기간": "5개월", "손실 기간": "5개월", "하락률 (MDD)": "-17.1%"},
+                    {"순위": 6, "하락 시작": "2019-05", "최대 하락": "2019-05", "회복 완료": "2019-11", "회복 기간": "7개월", "손실 기간": "7개월", "하락률 (MDD)": "-16.2%"},
+                    {"순위": 7, "하락 시작": "2023-08", "최대 하락": "2023-10", "회복 완료": "2023-12", "회복 기간": "3개월", "손실 기간": "5개월", "하락률 (MDD)": "-13.5%"},
+                    {"순위": 8, "하락 시작": "2026-03", "최대 하락": "2026-03", "회복 완료": "2026-04", "회복 기간": "1개월", "손실 기간": "11개월", "하락률 (MDD)": "-11.1%"},
+                    {"순위": 9, "하락 시작": "2021-02", "최대 하락": "2021-03", "회복 완료": "2021-05", "회복 기간": "3개월", "손실 기간": "4개월", "하락률 (MDD)": "-10.9%"},
+                    {"순위": 10, "하락 시작": "2022-12", "최대 하락": "2023-04", "회복 완료": "2023-05", "회복 기간": "2개월", "손실 기간": "6개월", "하락률 (MDD)": "-9.1%"}
+                ]
+                st.dataframe(pd.DataFrame(drawdown_data_c), use_container_width=True, hide_index=True)
+                
+            with pdf_c_tab3:
+                st.markdown("#### 💼 자산별 장기 성과 분석 (CAGR / MDD)")
+                asset_perf_data_c = [
+                    {"자산군 (ETF)": "SMH (VanEck Semiconductor)", "CAGR (연성장률)": "35.3%", "변동성": "29.8%", "MDD": "-40.0%", "샤프 지수": "1.10", "포트폴리오 기여도": "29.2%", "참여도": "26.7% (28/105M)"},
+                    {"자산군 (ETF)": "GLD (SPDR Gold Shares)", "CAGR (연성장률)": "13.4%", "변동성": "15.3%", "MDD": "-23.8%", "샤프 지수": "0.72", "포트폴리오 기여도": "54.7%", "참여도": "19.0% (20/105M)"},
+                    {"자산군 (ETF)": "FDN (First Trust Internet)", "CAGR (연성장률)": "11.6%", "변동성": "22.6%", "MDD": "-50.6%", "샤프 지수": "0.40", "포트폴리오 기여도": "5.8%", "참여도": "16.2% (17/105M)"},
+                    {"자산군 (ETF)": "LIT (Global X Lithium & Battery)", "CAGR (연성장률)": "10.2%", "변동성": "29.9%", "MDD": "-59.9%", "샤프 지수": "0.26", "포트폴리오 기여도": "12.6%", "참여도": "16.2% (17/105M)"},
+                    {"자산군 (ETF)": "XLE (Energy Select Sector)", "CAGR (연성장률)": "9.5%", "변동성": "31.2%", "MDD": "-58.1%", "샤프 지수": "0.23", "포트폴리오 기여도": "7.9%", "참여도": "13.3% (14/105M)"},
+                    {"자산군 (ETF)": "PDBC (Invesco Commodity)", "CAGR (연성장률)": "8.0%", "변동성": "17.5%", "MDD": "-37.6%", "샤프 지수": "0.32", "포트폴리오 기여도": "0.0%", "참여도": "0.0% (0/105M)"},
+                    {"자산군 (ETF)": "OILK (ProShares Crude Oil)", "CAGR (연성장률)": "2.4%", "변동성": "37.7%", "MDD": "-81.6%", "샤프 지수": "-0.00", "포트폴리오 기여도": "-10.2%", "참여도": "8.6% (9/105M)"}
+                ]
+                st.dataframe(pd.DataFrame(asset_perf_data_c), use_container_width=True, hide_index=True)
+                st.caption("* 데일리 기준 시뮬레이션 지표값 (2017-11-01 ~ 2026-07-01)")
 
         st.markdown(
             "**1단계: 카나리아 신호 판단 (S&P 500 배당수익률)** \n"
@@ -1359,7 +1435,6 @@ else:
         
         if is_attack_c:
             st.success(f"🔥 **현재 모드: 공격 자산 모드** (실시간 배당수익률 {realtime_dy:.2f}% > 1.33%) - 시장 저평가 국면으로 주식을 매수합니다.")
-            
             df_off_c = df_all[df_all["Ticker"].isin(OFFENSIVE_C)].copy()
             df_off_c = df_off_c.sort_values(by="A_공격스코어", ascending=False)
             
@@ -1377,7 +1452,6 @@ else:
                 st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
         else:
             st.warning(f"🛡️ **현재 모드: 방어 자산 모드** (실시간 배당수익률 {realtime_dy:.2f}% <= 1.33%) - 시장 과열 국면으로 원자재 자산으로 대피합니다.")
-            
             df_def_c = df_all[df_all["Ticker"].isin(DEFENSIVE_C)].copy()
             df_def_c = df_def_c.sort_values(by="A_방어스코어", ascending=False)
             
@@ -1399,6 +1473,7 @@ else:
 
 
     # ==================== TAB 5: 미국 ETF 랭킹 (c_rank 컨테이너에 매핑) ====================
+    # STREAMING_CHUNK: 미국 ETF 랭킹 탭 내용 작성...
     with c_rank:
         st.header("🇺🇸 실시간 미국 ETF 랭킹")
         st.markdown(
@@ -1467,6 +1542,7 @@ else:
 
 
     # ==================== TAB 6: 자산 계산기 (c_calc 컨테이너에 매핑) ====================
+    # STREAMING_CHUNK: 자산 계산기 탭 내용 작성...
     with c_calc:
         st.header("🧮 복리의 마법 & 미래 계산기")
         st.markdown(
