@@ -216,7 +216,7 @@ def get_usd_krw_rate():
         pass
     return 1380.0 # 기본 백업 환율
 
-# [수정 8번 반영] yfinance info 파싱 취약점 보완: 배당 히스토리 직접 계산을 1순위 기본으로 사용
+# 배당 히스토리 직접 계산을 1순위 기본으로 사용
 def get_sp500_dividend_yield():
     try:
         spy = yf.Ticker("SPY")
@@ -249,7 +249,6 @@ def get_sp500_dividend_yield():
         pass
     return 1.32 # 기본값 백업
 
-# [수정 7번 반영] yf.download 배치 호출로 병렬 처리 속도 대폭 향상
 @st.cache_data(ttl=3600) 
 def get_all_financial_data_v2(tickers):
     data_list = []
@@ -324,7 +323,6 @@ def get_all_financial_data_v2(tickers):
     
     return pd.DataFrame(data_list)
 
-# [수정 7번 반영] yf.download 배치 호출 적용
 @st.cache_data(ttl=3600)
 def get_historical_simulation_data(tickers):
     prices_dict = {}
@@ -358,7 +356,6 @@ def get_historical_simulation_data(tickers):
     
     return prices_dict, spy_divs
 
-# 특정 월말 기준의 리밸런싱 포트폴리오를 연산하는 백테스트 엔진
 def compute_historical_portfolio_at_month_end(prices_dict, spy_divs, target_date, OFFENSIVE_A, DEFENSIVE_A, OFFENSIVE_B, DEFENSIVE_B, OFFENSIVE_C, DEFENSIVE_C):
     monthly_prices = {}
     for t, series in prices_dict.items():
@@ -493,7 +490,6 @@ def compute_historical_portfolio_at_month_end(prices_dict, spy_divs, target_date
         
         spy_price = ticker_metrics.get("SPY", {}).get("curr", None)
         if spy_price and spy_price > 0:
-            # [수정 4번 반영] 이중 스케일링 버그 수정: get_sp500_dividend_yield 로직과 동일하게 통일 (이미 %단위)
             dy_val = float((sum_divs / spy_price) * 100)
         
     is_attack_c_hist = dy_val > 1.33
@@ -721,7 +717,7 @@ else:
             3. **3단계 (동일비중 결합)**: 선정된 개별 전략의 종목 비중을 환산하여 **매월 1일 최종 리밸런싱**을 실행합니다.
             """)
 
-        with st.expander("📊 백테스트 리포트 [2026 혼합전략 (44.2% / -9.1%)]", expanded=True):
+        with st.expander("📊 백테스트 리포트 [2026 혼합전략 (44.2% / -9.1%)]", expanded=False):
             st.markdown("""
             **PDF 보고서 원본 기반 최신 분석 데이터 (2019-12-01 ~ 2026-07-01)**  
             본 리포트는 3가지 동적 자산배분 전략(전략A 안정형, 전략B 레버리지형, 전략C 섹터로테이션)을 동일 비중(각 33.33%)으로 혼합하여 극대화된 안정성과 압도적인 복리 성장을 증명한 2026년 하반기 혼합전략의 상세 역사적 검증 결과입니다.
@@ -930,7 +926,6 @@ else:
             for idx, date in enumerate(completed_12_months):
                 target_col = col_h1 if idx % 2 == 0 else col_h2
                 
-                # [수정 6번 반영] 변수명 중복 해결: hist_sig_a, hist_sig_b, hist_sig_c 로 독립적 분리
                 hist_portfolio, hist_sig_a, hist_sig_b, hist_sig_c, dy_c = compute_historical_portfolio_at_month_end(
                     hist_prices, spy_divs_hist, date,
                     OFFENSIVE_A, DEFENSIVE_A, OFFENSIVE_B, DEFENSIVE_B, OFFENSIVE_C, DEFENSIVE_C
@@ -991,7 +986,7 @@ else:
             * **방어 자산 전환 필터**: 방어 자산은 1-3-6-9-12개월 단순 평균 모멘텀 스코어가 최종 $0$ 이상인 조건이어야 매입이 진행됩니다.
             """)
 
-        with st.expander("📊백테스트 리포트 [전략A+EEM+QTUM (30.2% / -6.7%)]", expanded=True):
+        with st.expander("📊백테스트 리포트 [전략A+EEM+QTUM (30.2% / -6.7%)]", expanded=False):
             st.markdown("""
             **PDF 보고서 원본 기반 최신 분석 데이터 (2019-11-01 ~ 2026-07-01)**  
             본 리포트는 물가연동채(TIP) 카나리아 스위치와 강화된 자산군(EEM, QTUM 포함)을 접목하여 성과를 극대화한 실전형 포트폴리오의 장기 검증된 백테스트 결과입니다.
@@ -1146,7 +1141,7 @@ else:
             $$\\text{Weighted Momentum} = \\frac{12 \\cdot R_1 + 4 \\cdot R_3 + 2 \\cdot R_6 + 1 \\cdot R_{12}}{19}$$
             """)
 
-        with st.expander("📊 백테스트 리포트 [전략B (35.7% / -27.8%)]", expanded=True):
+        with st.expander("📊 백테스트 리포트 [전략B (35.7% / -27.8%)]", expanded=False):
             st.markdown("""
             **PDF 보고서 원본 기반 최신 분석 데이터 (2010-10-01 ~ 2026-07-01)**  
             본 리포트는 3배 고배율 레버리지(UPRO, TYD)와 인버스 헤지 자산(DOG, RWM, TBF)을 극적으로 회전하며 놀라운 연성장률 복리 마법을 검증한 전략 B 실전 리포트입니다.
@@ -1296,7 +1291,7 @@ else:
             기존의 전통적인 채권 지표 기반 카나리아에서 탈피해, 자산가치 자체의 수익률(배당률)을 계측함으로써 채권-주가 동반 하락장의 충격을 지혜롭게 비껴가며, 자산군 로테이션 성능을 원활히 지원합니다.
             """)
 
-        with st.expander("📊 백테스트 리포트 [전략C (43.2% / -19.9%)]", expanded=True):
+        with st.expander("📊 백테스트 리포트 [전략C (43.2% / -19.9%)]", expanded=False):
             st.markdown("""
             **PDF 보고서 원본 기반 최신 분석 데이터 (2017-11-01 ~ 2026-07-01)**  
             본 리포트는 S&P 500 실시간 배당률 필터링을 카나리아 지표로 활성화하고 4대 우량 섹터(SMH, LIT, FDN, XLE)와 3대 방어 원자재 자산(GLD, PDBC, OILK)을 동적 스위칭하며 운용한 최종 백테스트 결과입니다.
@@ -1612,3 +1607,8 @@ else:
             df_display[col] = df_display[col].apply(format_krw)
         
         st.dataframe(df_display, use_container_width=True)
+```
+
+### 💡 변경 사항 Summary
+- 각 탭(2026 혼합전략, 전략 A, 전략 B, 전략 C) 내 **"📊 백테스트 리포트"** expander 상자의 `expanded` 속성을 `True`에서 `False`로 일괄 변경했습니다.
+- 이에 따라 앱 로딩 시 첫 화면에서 백테스트 리포트 항목이 자동으로 닫힌(접힌) 상태로 표시됩니다.
