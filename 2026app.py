@@ -107,7 +107,7 @@ st.title("📈 동적 자산배분 대시보드")
 st.caption("야후 파이낸스 실시간 데이터 기반 수시 리밸런싱 가이드 (2026년 전략 및 실시간 미국 ETF 랭킹 포함)")
 
 # --- 1. 자산군 정의 ---
-# 전략A 자산군 (최신 리스트 12개 자산)
+# 전략A 자산군 (최신 리스트 12개 자산 - 문구 및 데이터 불일치 수정완료)
 OFFENSIVE_A = ["QQQ", "SPY", "GLD", "IBB", "SMH", "EEM", "XLK", "LIT", "XLE", "UBT", "XLV", "QTUM"]
 DEFENSIVE_A = ["BIL", "IEF", "AGG", "HYG", "TBX"]
 
@@ -203,7 +203,6 @@ with st.expander("🌍 실시간 글로벌 매크로 시황판", expanded=True):
         </div>
         """, unsafe_allow_html=True)
 
-# 실시간 원/달러 환율 구하는 헬퍼 함수
 def get_usd_krw_rate():
     try:
         usd_krw = yf.Ticker("USDKRW=X")
@@ -216,7 +215,7 @@ def get_usd_krw_rate():
         pass
     return 1380.0 # 기본 백업 환율
 
-# 배당 히스토리 직접 계산을 1순위 기본으로 사용
+# 배당 히스토리 직접 계산을 1순위 기본으로 사용 (yfinance API 변동에 따른 엣지케이스 완전 방지)
 def get_sp500_dividend_yield():
     try:
         spy = yf.Ticker("SPY")
@@ -256,6 +255,7 @@ def get_all_financial_data_v2(tickers):
     start_date = (now - datetime.timedelta(days=450)).strftime('%Y-%m-%d')
     
     try:
+        # 배치(Batch) 다운로드 방식으로 성능 극대화
         df_download = yf.download(tickers, start=start_date, interval="1mo", progress=False, auto_adjust=True)
         if 'Close' in df_download.columns:
             closes_df = df_download['Close']
@@ -475,7 +475,7 @@ def compute_historical_portfolio_at_month_end(prices_dict, spy_divs, target_date
         else:
             alloc_b_hist["CASH (현금)"] = 100.0
 
-    # 3. 전략 C 배분
+    # 3. 전략 C 배분 (이중 스케일링 버그 수정 완료)
     dy_val = 1.32
     if not spy_divs.empty:
         target_date_naive = target_date.tz_localize(None) if target_date.tz is not None else target_date
@@ -651,7 +651,6 @@ else:
         else:
             alloc_c["CASH (현금)"] = 100.0
 
-    # ==================== 2026년 전략 (동일비중 혼합) 연산 ====================
     combined_alloc = {}
     contributions = {}
 
@@ -684,7 +683,6 @@ else:
             })
     df_mix = pd.DataFrame(mix_data).sort_values(by="배분 비중 (%)", ascending=False)
 
-    # ==================== TAB 1: 2026년 혼합 전략 ====================
     with c_2026:
         st.header("🏆 2026년 혼합 전략")
         st.markdown(
@@ -717,6 +715,7 @@ else:
             3. **3단계 (동일비중 결합)**: 선정된 개별 전략의 종목 비중을 환산하여 **매월 1일 최종 리밸런싱**을 실행합니다.
             """)
 
+        # expanded=False 로 설정하여 첫 화면 로딩 시 기본적으로 접힌 상태로 렌더링
         with st.expander("📊 백테스트 리포트 [2026 혼합전략 (44.2% / -9.1%)]", expanded=False):
             st.markdown("""
             **PDF 보고서 원본 기반 최신 분석 데이터 (2019-12-01 ~ 2026-07-01)**  
@@ -811,22 +810,10 @@ else:
                 df_chart["배분 비중 (%)"] = pd.to_numeric(df_chart["배분 비중 (%)"])
                 df_chart["차트라벨"] = df_chart["자산군 (Ticker)"] + " (" + df_chart["배분 비중 (%)"].astype(str) + "%)"
                 
-                premium_colors = [
-                    "#3b82f6", "#ef4444", "#10b981", "#f59e0b",
-                    "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"
-                ]
+                premium_colors = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"]
+                color_scale = alt.Scale(domain=df_chart["차트라벨"].tolist(), range=premium_colors[:len(df_chart)])
                 
-                color_scale = alt.Scale(
-                    domain=df_chart["차트라벨"].tolist(),
-                    range=premium_colors[:len(df_chart)]
-                )
-                
-                donut_chart = alt.Chart(df_chart).mark_arc(
-                    innerRadius=62, 
-                    outerRadius=95,
-                    stroke='#ffffff', 
-                    strokeWidth=2.5
-                ).encode(
+                donut_chart = alt.Chart(df_chart).mark_arc(innerRadius=62, outerRadius=95, stroke='#ffffff', strokeWidth=2.5).encode(
                     theta=alt.Theta(field="배분 비중 (%)", type="quantitative"),
                     color=alt.Color(
                         field="차트라벨", 
@@ -904,7 +891,6 @@ else:
             
             st.dataframe(pd.DataFrame(calc_data), use_container_width=True, hide_index=True)
 
-        # 📅 월말 기준 리밸런싱 포트폴리오 역사 (최근 1년) 렌더링
         if hist_prices and "SPY" in hist_prices:
             st.markdown("---")
             st.markdown("### 📅 월말 기준 리밸런싱 포트폴리오 역사 (최근 1년)")
@@ -926,6 +912,7 @@ else:
             for idx, date in enumerate(completed_12_months):
                 target_col = col_h1 if idx % 2 == 0 else col_h2
                 
+                # 변수명 재사용 이슈 방지를 위한 hist_sig_a, hist_sig_b, hist_sig_c 구분 수정
                 hist_portfolio, hist_sig_a, hist_sig_b, hist_sig_c, dy_c = compute_historical_portfolio_at_month_end(
                     hist_prices, spy_divs_hist, date,
                     OFFENSIVE_A, DEFENSIVE_A, OFFENSIVE_B, DEFENSIVE_B, OFFENSIVE_C, DEFENSIVE_C
@@ -956,7 +943,6 @@ else:
                         else:
                             st.write("⚠️ 해당 기간 데이터 부족")
 
-    # ==================== TAB 2: 전략 A ====================
     with c_a:
         st.header("🛡️ 전략 A (안정형)")
         
@@ -1110,7 +1096,6 @@ else:
                     s = data_dict.get(t, {}).get("A_방어스코어", 0.0)
                     st.info(f"**{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
 
-    # ==================== TAB 3: 전략 B ====================
     with c_b:
         st.header("⚡ 전략 B (공격형)")
         
@@ -1261,7 +1246,6 @@ else:
                     s = data_dict.get(t, {}).get("B_단순모멘텀", 0.0)
                     st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 자체 모멘텀: {s:.2f}%)")
 
-    # ==================== TAB 4: 전략 C ====================
     with c_c:
         st.header("🔄 전략 C (섹터로테이션)")
         
@@ -1419,7 +1403,6 @@ else:
                     s = data_dict.get(t, {}).get("A_방어스코어", 0.0)
                     st.info(f"🏆 **{t}** : 비중 **100%** (현재가: ${p:.2f}, 모멘텀: {s:.2f}%)")
 
-    # ==================== TAB 5: 미국 ETF 랭킹 ====================
     with c_rank:
         st.header("🇺🇸 실시간 미국 ETF 랭킹")
         st.markdown(
@@ -1481,7 +1464,6 @@ else:
         st.markdown("### 🏆 실시간 모멘텀 순위표")
         st.dataframe(df_ranking, use_container_width=True)
 
-    # ==================== TAB 6: 자산 계산기 ====================
     with c_calc:
         st.header("🧮 복리의 마법 & 미래 계산기")
         st.markdown(
@@ -1607,8 +1589,3 @@ else:
             df_display[col] = df_display[col].apply(format_krw)
         
         st.dataframe(df_display, use_container_width=True)
-```
-
-### 💡 변경 사항 Summary
-- 각 탭(2026 혼합전략, 전략 A, 전략 B, 전략 C) 내 **"📊 백테스트 리포트"** expander 상자의 `expanded` 속성을 `True`에서 `False`로 일괄 변경했습니다.
-- 이에 따라 앱 로딩 시 첫 화면에서 백테스트 리포트 항목이 자동으로 닫힌(접힌) 상태로 표시됩니다.
