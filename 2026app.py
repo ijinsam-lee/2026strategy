@@ -122,9 +122,10 @@ DEFENSIVE_C = ["GLD", "PDBC", "OILK", "SHY", "TLT"] # 3대 원자재 및 채권 
 # 중복 없는 전체 티커 추출 (미국 ETF 랭킹 비교용 인기 자산군 SCHD, JEPI, TQQQ, SOXL, DIA, IWM, XLF 추가)
 ALL_TICKERS = list(set(["TIP", "SPY"] + OFFENSIVE_A + DEFENSIVE_A + OFFENSIVE_B + DEFENSIVE_B + OFFENSIVE_C + DEFENSIVE_C + ["SCHD", "QQQM", "IGV", "XLU", "JEPI", "TQQQ", "SOXL", "DIA", "IWM", "XLF"]))
 
-# 관심매크로 지표 정의 및 심볼 매핑
+# 관심매크로 지표 정의 및 심볼 매핑 (미국 30년물 국채 금리 추가)
 MACRO_TICKERS = {
     "미국 10년물 국채 금리": "^TNX",
+    "미국 30년물 국채 금리": "^TYX",
     "달러/원": "USDKRW=X",
     "WTI유": "CL=F",
     "미국 물가연동채권": "TIP",
@@ -154,7 +155,7 @@ def get_macro_market_pulse():
                     delta = current_price - prev_price
                     delta_pct = (delta / prev_price) * 100 if prev_price > 0 else 0.0
                     
-                    if symbol == "^TNX":
+                    if symbol in ["^TNX", "^TYX"]:
                         price_val = f"{current_price:.3f}%"
                         delta_val = f"{delta:+.3f}"
                     elif "KRW=X" in symbol:
