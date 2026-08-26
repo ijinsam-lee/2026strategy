@@ -108,8 +108,8 @@ st.caption("야후 파이낸스 실시간 데이터 기반 수시 리밸런싱 �
 
 # --- 1. 자산군 정의 ---
 # 전략A 자산군 (최신 리스트 12개 자산 - 문구 및 데이터 불일치 수정완료)
-OFFENSIVE_A = ["QQQ", "SPY", "GLD", "IBB", "SMH", "EEM", "XLK", "LIT", "XLE", "UBT", "XLV", "QTUM"]
-DEFENSIVE_A = ["BIL", "IEF", "AGG", "HYG", "TBX"]
+OFFENSIVE_A = ["QQQ", "FEZ", "GLD", "IBB", "SMH", "EEM", "XLK", "LIT", "XLE", "UBT", "XLV", "QTUM"]
+DEFENSIVE_A = ["BIL", "IEF", "AGG", "HYG", "TBF"]
 
 # 전략B 자산군 (레버리지/인버스)
 OFFENSIVE_B = ["TYD", "UPRO", "VNQ"]
